@@ -105,6 +105,9 @@ export function useSession() {
 
       // Privy embedded wallets sign silently (no popup) when the user already
       // authenticated via Privy. External wallets (MetaMask) show their own popup.
+      // Pass uint256 values as plain numbers, not BigInt — Privy serializes
+      // the message to JSON internally and BigInt isn't JSON-serializable.
+      // Hash is identical (EIP-712 normalises any numeric form to 32-byte BE).
       const result = await signTypedData(
         {
           domain:      { name: "Mneme", version: "1", chainId: 8453 },
@@ -112,8 +115,8 @@ export function useSession() {
           primaryType: "MnemeSession",
           message: {
             wallet:     address,
-            issued_at:  BigInt(issued_at),
-            expires_at: BigInt(expires_at),
+            issued_at,
+            expires_at,
             nonce,
           },
         },

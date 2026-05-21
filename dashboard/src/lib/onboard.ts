@@ -38,6 +38,8 @@ export type OnboardResult =
 export async function createProject(input: OnboardInput): Promise<OnboardResult> {
   const timestamp = Math.floor(Date.now() / 1000);
 
+  // Pass timestamp as a plain number — Privy serializes to JSON internally
+  // and BigInt isn't JSON-serializable. EIP-712 hash is identical either way.
   const result = await input.signTypedData(
     {
       domain:      { name: "Mneme", version: "1", chainId: 8453 },
@@ -45,7 +47,7 @@ export async function createProject(input: OnboardInput): Promise<OnboardResult>
       primaryType: "CreateProject",
       message: {
         handle:    input.handle,
-        timestamp: BigInt(timestamp),
+        timestamp,
       },
     },
     { uiOptions: { showWalletUIs: false } },

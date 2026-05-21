@@ -1,4 +1,5 @@
 import { useConnect } from "wagmi";
+import { StatusBadge } from "./StatusBadge";
 
 export function Landing() {
   const { connectors, connect, status, error } = useConnect();
@@ -24,6 +25,7 @@ export function Landing() {
           <span className="font-semibold tracking-tight text-lg">Mneme</span>
         </a>
         <div className="flex items-center gap-5 text-sm">
+          <span className="hidden lg:inline-flex"><StatusBadge /></span>
           <a href="#code"          className="hidden md:inline text-ink-400 hover:text-white transition">Code</a>
           <a href="#compare"       className="hidden md:inline text-ink-400 hover:text-white transition">Why Mneme</a>
           <a href="#faq"           className="hidden md:inline text-ink-400 hover:text-white transition">FAQ</a>
@@ -116,7 +118,8 @@ export function Landing() {
           </p>
 
           <CodeBlock title="agent.ts">
-{`import { privateKeyToAccount } from "viem/accounts";
+{`// npm i mneme-sdk viem
+import { privateKeyToAccount } from "viem/accounts";
 import { Mneme } from "mneme-sdk";
 
 const m = new Mneme({
@@ -382,8 +385,13 @@ const { matches } = await m.vectorSearch({
       {/* ════ Footer ════════════════════════════════════════════════════════ */}
       <footer className="py-12 border-t border-ink-900">
         <div className="max-w-6xl mx-auto px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-ink-500">
-          <div>Mneme — built on Base. Pre-MVP, stealth.</div>
-          <div className="flex gap-5">
+          <div className="flex items-center gap-4">
+            <span>Mneme — built on Base.</span>
+            <StatusBadge />
+          </div>
+          <div className="flex gap-5 flex-wrap justify-center">
+            <a className="hover:text-white transition" href="https://www.npmjs.com/package/mneme-sdk" target="_blank" rel="noreferrer">mneme-sdk</a>
+            <a className="hover:text-white transition" href="https://www.npmjs.com/package/mneme-mcp" target="_blank" rel="noreferrer">mneme-mcp</a>
             <a className="hover:text-white transition" href="https://github.com/mnemedb/mnemedb" target="_blank" rel="noreferrer">GitHub</a>
             <a className="hover:text-white transition" href="#code">Code</a>
             <a className="hover:text-white transition" href="#compare">Compare</a>

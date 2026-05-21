@@ -1,7 +1,16 @@
 # Mneme
 
+[![mneme-sdk](https://img.shields.io/npm/v/mneme-sdk?label=mneme-sdk&color=d4af37&style=flat-square)](https://www.npmjs.com/package/mneme-sdk)
+[![mneme-mcp](https://img.shields.io/npm/v/mneme-mcp?label=mneme-mcp&color=d4af37&style=flat-square)](https://www.npmjs.com/package/mneme-mcp)
+[![gateway](https://img.shields.io/website?url=https%3A%2F%2Fgateway.mnemedb.dev%2Fhealth&label=gateway&up_message=live&up_color=22c55e&down_message=down&down_color=ef4444&style=flat-square)](https://gateway.mnemedb.dev/health)
+[![license](https://img.shields.io/badge/license-MIT-3b82f6?style=flat-square)](LICENSE)
+[![built on Base](https://img.shields.io/badge/built%20on-Base-0052ff?style=flat-square)](https://base.org)
+
 > **The agent-native database platform on Base.**
 > Real Postgres. Real schemas. Wallet-auth. MCP-native. Memory in gold.
+
+🟢 Live MVP — try it at **[mnemedb.dev](https://mnemedb.dev)** or smoke-test the
+gateway: [`gateway.mnemedb.dev/health`](https://gateway.mnemedb.dev/health).
 
 Mneme is a managed multi-tenant Postgres platform built for AI agents. Each
 agent gets a dedicated schema with four memory tables ready to go, then can

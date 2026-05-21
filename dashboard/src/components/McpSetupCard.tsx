@@ -1,18 +1,16 @@
 import { useState } from "react";
+import { useExportWallet, usePrivy } from "@privy-io/react-auth";
 
 const GATEWAY =
   import.meta.env.VITE_MNEME_GATEWAY_URL ?? "https://gateway.mnemedb.dev";
 
-// Published snippet — uses the `mneme-mcp` global binary from npm.
-// Lives next to the Local-dev variant in case someone wants to run the
-// built binary directly from a cloned repo.
 const PUBLISHED_CONFIG = JSON.stringify(
   {
     mcpServers: {
       mneme: {
         command: "mneme-mcp",
         env: {
-          MNEME_AGENT_PRIVATE_KEY: "0x<agent-eoa-private-key>",
+          MNEME_AGENT_PRIVATE_KEY: "0x<paste-from-export-wallet>",
           MNEME_GATEWAY_URL:        GATEWAY,
         },
       },
@@ -29,7 +27,7 @@ const LOCAL_DEV_CONFIG = JSON.stringify(
         command: "node",
         args:    ["<path-to-mneme>/mcp/dist/index.js"],
         env: {
-          MNEME_AGENT_PRIVATE_KEY: "0x<agent-eoa-private-key>",
+          MNEME_AGENT_PRIVATE_KEY: "0x<paste-from-export-wallet>",
           MNEME_GATEWAY_URL:        GATEWAY,
         },
       },
@@ -40,10 +38,13 @@ const LOCAL_DEV_CONFIG = JSON.stringify(
 );
 
 export function McpSetupCard() {
+  const { user } = usePrivy();
+  const { exportWallet } = useExportWallet();
   const [tab, setTab] = useState<"published" | "local">("published");
   const [copied, setCopied] = useState(false);
 
   const config = tab === "published" ? PUBLISHED_CONFIG : LOCAL_DEV_CONFIG;
+  const isEmbedded = user?.wallet?.walletClientType === "privy";
 
   const copy = () => {
     navigator.clipboard.writeText(config);
@@ -62,7 +63,7 @@ export function McpSetupCard() {
             <div className="text-xs text-ink-500 mt-0.5">
               Install once with{" "}
               <code className="font-mono text-gold-300/80">npm i -g mneme-mcp</code>,
-              then paste this into your MCP config.
+              then paste the config below into your MCP client.
             </div>
           </div>
           <button
@@ -83,17 +84,53 @@ export function McpSetupCard() {
         {config}
       </pre>
 
-      <div className="px-5 py-3 border-t border-ink-800 bg-ink-950/40 text-xs text-ink-400 space-y-2">
-        <div>
-          <span className="text-gold-300 font-medium">Heads up:</span>{" "}
-          the agent's wallet must be a separate EOA (private key) — your
-          Coinbase Smart Wallet doesn't expose one. The agent EOA also needs
-          its own Mneme project (its own handle).
+      <div className="px-5 py-4 border-t border-ink-800 bg-ink-950/40 space-y-3">
+        <div className="text-xs text-ink-300 leading-relaxed">
+          <span className="text-gold-300 font-medium">Step 1.</span>{" "}
+          Get the private key for <code className="font-mono text-gold-300/80">MNEME_AGENT_PRIVATE_KEY</code>{" "}
+          {isEmbedded ? (
+            <>by exporting your embedded wallet — Privy opens a secure modal
+            with a "Reveal private key" button. The exported key is for the
+            <em> same </em> wallet that owns this project, so the MCP server
+            writes to <em>your</em> tables.</>
+          ) : (
+            <>by using your existing external wallet's private key (MetaMask:
+            account menu → Account details → Show private key). Since this is
+            your own wallet, MCP writes to your project.</>
+          )}
         </div>
-        <div>
-          <span className="text-ink-500">Coming Phase 2:</span>{" "}
-          link agent keys to your project so one project can have many agent
-          wallets without separate signups.
+
+        {isEmbedded && (
+          <button
+            onClick={() => exportWallet()}
+            className="px-4 py-2 rounded-lg bg-gold-400/15 hover:bg-gold-400/25 border border-gold-400/30 text-gold-300 text-xs font-medium transition"
+          >
+            Export wallet for MCP →
+          </button>
+        )}
+
+        <div className="text-xs text-ink-400 leading-relaxed pt-1">
+          <span className="text-gold-300 font-medium">Step 2.</span>{" "}
+          Paste the config into your MCP client (Claude Desktop:{" "}
+          <code className="font-mono text-gold-300/80">~/Library/Application Support/Claude/claude_desktop_config.json</code>{" "}
+          on mac, <code className="font-mono text-gold-300/80">%APPDATA%/Claude/claude_desktop_config.json</code>{" "}
+          on Windows). Replace the private-key placeholder, then restart Claude.
+        </div>
+
+        <div className="text-xs text-ink-400 leading-relaxed">
+          <span className="text-gold-300 font-medium">Step 3.</span>{" "}
+          Verify: ask Claude{" "}
+          <em>"use the mneme MCP to list my tables"</em> — you should see all four
+          default tables plus any custom ones. Then ask{" "}
+          <em>"create a table called 'tasks' with text + jsonb columns"</em> and
+          refresh this dashboard's Tables view to see it appear.
+        </div>
+
+        <div className="text-xs text-ink-500 leading-relaxed pt-2 border-t border-ink-800/60">
+          <span className="text-ink-400 font-medium">Phase 2:</span>{" "}
+          link multiple agent wallets to one project — your humans-owned wallet
+          stays in the dashboard, agent wallets get scoped write access without
+          exporting anything.
         </div>
       </div>
     </div>

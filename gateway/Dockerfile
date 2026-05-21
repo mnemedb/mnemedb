@@ -1,10 +1,10 @@
 # ─── Stage 1: install deps ─────────────────────────────────────────────────
+# NOTE: build context is the gateway/ directory (DO App Platform sets it from
+# the configured Source Directory). Paths are relative to that.
 FROM oven/bun:1.3-slim AS deps
 WORKDIR /app
 
-# Gateway has no workspace deps (it doesn't import @mneme/sdk), so a flat
-# install from gateway/package.json is enough.
-COPY gateway/package.json ./
+COPY package.json ./
 RUN bun install --production
 
 # ─── Stage 2: runtime ──────────────────────────────────────────────────────
@@ -15,8 +15,8 @@ ENV NODE_ENV=production
 ENV PORT=8787
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY gateway/src ./src
-COPY gateway/package.json ./
+COPY src ./src
+COPY package.json ./
 
 EXPOSE 8787
 

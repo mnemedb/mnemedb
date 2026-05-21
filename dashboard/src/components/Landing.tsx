@@ -108,7 +108,7 @@ export function Landing() {
               Postgres schema with four agent tables in one transaction.
             </Step>
             <Step n="3" title="Plug into your agent">
-              Use <code className="font-mono text-gold-300">@mneme/sdk</code> from your code,
+              Use <code className="font-mono text-gold-300">mneme-sdk</code> from your code,
               or drop the MCP server into Claude / Cursor. Your agent has memory.
             </Step>
           </div>

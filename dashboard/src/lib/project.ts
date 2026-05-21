@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { MnemeError } from "@mneme/sdk";
+import { MnemeError } from "mneme-sdk";
 import { useMneme } from "./mneme-client";
 
 export interface ProjectInfo {

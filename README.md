@@ -47,8 +47,8 @@ default tables are a head start, not a ceiling.
 |---|---|
 | `contracts/` | Foundry — `AgentRegistry` (Phase 2 onchain handle layer) |
 | `gateway/`   | Bun + Hono — direct Postgres, schema-per-project, runtime DDL, wallet auth |
-| `sdk/`       | `@mneme/sdk` — `m.createTable`, `m.from(table).insert / list`, `m.vectorSearch`, … |
-| `mcp/`       | `@mneme/mcp` — Claude/Cursor MCP tools |
+| `sdk/`       | `mneme-sdk` — `m.createTable`, `m.from(table).insert / list`, `m.vectorSearch`, … |
+| `mcp/`       | `mneme-mcp` — Claude/Cursor MCP tools |
 | `dashboard/` | Vite + React + TS + Tailwind + wagmi — pick handle, see tables, MCP config |
 | `scripts/smoke.ts` | End-to-end smoke test (create project, custom table, insert, list, vector search) |
 
@@ -56,7 +56,7 @@ default tables are a head start, not a ceiling.
 
 ```ts
 import { privateKeyToAccount } from "viem/accounts";
-import { Mneme } from "@mneme/sdk";
+import { Mneme } from "mneme-sdk";
 
 const m = new Mneme({
   account:    privateKeyToAccount(process.env.AGENT_PRIVATE_KEY as `0x${string}`),

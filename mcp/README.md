@@ -1,4 +1,4 @@
-# @mneme/mcp
+# mneme-mcp
 
 MCP (Model Context Protocol) server for Mneme. Plug it into **Claude Desktop**,
 **Cursor**, **Cline**, **Continue**, or any MCP-compatible client and your
@@ -14,9 +14,9 @@ agent gains four tools backed by its own wallet identity:
 ## Install
 
 ```bash
-bun add -g @mneme/mcp
+bun add -g mneme-mcp
 # or
-npm i -g @mneme/mcp
+npm i -g mneme-mcp
 ```
 
 ## Claude Desktop

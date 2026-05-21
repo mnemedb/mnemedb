@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { TableInfo } from "@mneme/sdk";
+import type { TableInfo } from "mneme-sdk";
 import { useMneme } from "../lib/mneme-client";
 
 interface Props {

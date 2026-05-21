@@ -15,7 +15,7 @@
  *   MNEME_GATEWAY=https://... bun scripts/smoke.ts
  */
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { Mneme } from "@mneme/sdk";
+import { Mneme } from "mneme-sdk";
 
 const GATEWAY = process.env.MNEME_GATEWAY ?? "http://localhost:8787";
 const HANDLE  = "smoke_" + Math.random().toString(36).slice(2, 10);

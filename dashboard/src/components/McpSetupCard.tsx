@@ -3,8 +3,25 @@ import { useState } from "react";
 const GATEWAY =
   import.meta.env.VITE_MNEME_GATEWAY_URL ?? "https://gateway.mnemedb.dev";
 
-// Honest local-dev snippet — the binary is the freshly-built file in this repo.
-// Cross-platform: forward slashes work in Node even on Windows.
+// Published snippet — uses the `mneme-mcp` global binary from npm.
+// Lives next to the Local-dev variant in case someone wants to run the
+// built binary directly from a cloned repo.
+const PUBLISHED_CONFIG = JSON.stringify(
+  {
+    mcpServers: {
+      mneme: {
+        command: "mneme-mcp",
+        env: {
+          MNEME_AGENT_PRIVATE_KEY: "0x<agent-eoa-private-key>",
+          MNEME_GATEWAY_URL:        GATEWAY,
+        },
+      },
+    },
+  },
+  null,
+  2,
+);
+
 const LOCAL_DEV_CONFIG = JSON.stringify(
   {
     mcpServers: {
@@ -22,27 +39,11 @@ const LOCAL_DEV_CONFIG = JSON.stringify(
   2,
 );
 
-const PUBLISHED_CONFIG = JSON.stringify(
-  {
-    mcpServers: {
-      mneme: {
-        command: "mneme-mcp",
-        env: {
-          MNEME_AGENT_PRIVATE_KEY: "0x<agent-eoa-private-key>",
-          MNEME_GATEWAY_URL:        GATEWAY,
-        },
-      },
-    },
-  },
-  null,
-  2,
-);
-
 export function McpSetupCard() {
-  const [tab, setTab] = useState<"local" | "published">("local");
+  const [tab, setTab] = useState<"published" | "local">("published");
   const [copied, setCopied] = useState(false);
 
-  const config = tab === "local" ? LOCAL_DEV_CONFIG : PUBLISHED_CONFIG;
+  const config = tab === "published" ? PUBLISHED_CONFIG : LOCAL_DEV_CONFIG;
 
   const copy = () => {
     navigator.clipboard.writeText(config);
@@ -59,7 +60,9 @@ export function McpSetupCard() {
               Connect from Claude / Cursor / Cline
             </div>
             <div className="text-xs text-ink-500 mt-0.5">
-              Paste into your MCP config. Replace placeholders.
+              Install once with{" "}
+              <code className="font-mono text-gold-300/80">npm i -g mneme-mcp</code>,
+              then paste this into your MCP config.
             </div>
           </div>
           <button
@@ -71,8 +74,8 @@ export function McpSetupCard() {
         </div>
 
         <div className="flex gap-2 mt-3">
-          <Tab active={tab === "local"}     onClick={() => setTab("local")}     label="Local dev (works today)" />
-          <Tab active={tab === "published"} onClick={() => setTab("published")} label="After npm publish" />
+          <Tab active={tab === "published"} onClick={() => setTab("published")} label="npm (recommended)" />
+          <Tab active={tab === "local"}     onClick={() => setTab("local")}     label="Local dev" />
         </div>
       </div>
 
@@ -89,8 +92,8 @@ export function McpSetupCard() {
         </div>
         <div>
           <span className="text-ink-500">Coming Phase 2:</span>{" "}
-          link agent keys to your project (one project, many agent wallets) +
-          published <code className="font-mono">@mneme/mcp</code> on npm so the snippet shrinks.
+          link agent keys to your project so one project can have many agent
+          wallets without separate signups.
         </div>
       </div>
     </div>

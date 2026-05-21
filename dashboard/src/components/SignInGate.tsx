@@ -57,7 +57,15 @@ export function SignInGate({ onSignedIn, onCreateNew }: Props) {
           </div>
         )}
 
-        <p className="text-xs text-ink-500 mt-6 text-center">
+        <div className="mt-6 rounded-lg border border-ink-800 bg-ink-950/50 px-3 py-2 text-xs text-ink-400 leading-relaxed">
+          <span className="text-gold-300 font-medium">Heads up:</span>{" "}
+          your wallet may ask for "access to balance" and "permission to send
+          transaction requests" — that's a generic prompt every wallet shows.
+          Mneme only ever asks you to <strong>sign a message</strong> — never an
+          onchain transaction. No gas, no funds moved.
+        </div>
+
+        <p className="text-xs text-ink-500 mt-4 text-center">
           One signature per 24 hours. Session stays in your browser.
         </p>
       </div>

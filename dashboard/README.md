@@ -19,7 +19,7 @@ bun run dev
 - Tailwind 3 (custom `ink-*` palette, system-font stack)
 - wagmi 2 + viem (injected + Coinbase Wallet connectors, Base mainnet)
 - @tanstack/react-query
-- @mneme/sdk (workspace)
+- mneme-sdk (workspace)
 
 ## Pages (v1)
 

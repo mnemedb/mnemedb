@@ -12,8 +12,8 @@
   "scripts": {
     "dev:gateway":   "bun --filter mneme-gateway dev",
     "dev:dashboard": "bun --filter mneme-dashboard dev",
-    "build:sdk":     "bun --filter @mneme/sdk build",
-    "build:mcp":     "bun --filter @mneme/mcp build",
+    "build:sdk":     "bun --filter mneme-sdk build",
+    "build:mcp":     "bun --filter mneme-mcp build",
     "smoke":         "bun run scripts/smoke.ts",
     "typecheck":     "bun --filter '*' typecheck"
   },
@@ -21,7 +21,7 @@
     "typescript":  "^5.6.0",
     "@types/node": "^22.0.0",
     "viem":        "^2.21.0",
-    "@mneme/sdk":  "workspace:*"
+    "mneme-sdk":   "workspace:*"
   },
   "engines": {
     "bun": ">=1.1.0"

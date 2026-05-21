@@ -1,26 +1,47 @@
 {
-  "name": "@mneme/mcp",
-  "version": "0.0.0",
-  "description": "MCP server for Mneme — let Claude/Cursor/Cline use your agent DB as tools.",
+  "name": "mneme-mcp",
+  "version": "0.0.1",
+  "description": "MCP server for Mneme — let Claude / Cursor / Cline use your agent's Postgres database as tools.",
   "type": "module",
   "bin": {
     "mneme-mcp": "./dist/index.js"
   },
-  "files": ["dist"],
+  "files": ["dist", "README.md"],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --clean",
-    "dev": "tsup src/index.ts --format esm --watch",
-    "start": "node dist/index.js",
+    "build":     "tsup src/index.ts --format esm --clean",
+    "dev":       "tsup src/index.ts --format esm --watch",
+    "start":     "node dist/index.js",
     "typecheck": "tsc --noEmit"
   },
+  "keywords": [
+    "mneme",
+    "mcp",
+    "model-context-protocol",
+    "agent",
+    "database",
+    "postgres",
+    "pgvector",
+    "claude",
+    "cursor",
+    "cline",
+    "ai"
+  ],
+  "license": "MIT",
+  "homepage": "https://mnemedb.dev",
+  "repository": {
+    "type": "git",
+    "url":  "https://github.com/mnemedb/mnemedb.git",
+    "directory": "mcp"
+  },
+  "author": "mnemedb",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@mneme/sdk": "workspace:*",
-    "viem": "^2.21.0",
-    "zod": "^3.23.0"
+    "mneme-sdk":                 "workspace:*",
+    "viem":                      "^2.21.0",
+    "zod":                       "^3.23.0"
   },
   "devDependencies": {
-    "tsup": "^8.0.0",
+    "tsup":       "^8.0.0",
     "typescript": "^5.6.0"
   }
 }

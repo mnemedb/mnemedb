@@ -1,18 +1,18 @@
-# @mneme/sdk
+# mneme-sdk
 
 TypeScript SDK for **Mneme** — agent-native data layer on Base. Wallet-signed
 requests, opinionated tables built for agents (`memories`, `documents`,
 `events`, `kvs`), pgvector KNN out of the box.
 
 ```bash
-bun add @mneme/sdk viem
+bun add mneme-sdk viem
 ```
 
 ## Quickstart
 
 ```ts
 import { privateKeyToAccount } from "viem/accounts";
-import { Mneme } from "@mneme/sdk";
+import { Mneme } from "mneme-sdk";
 
 const account = privateKeyToAccount(process.env.AGENT_PRIVATE_KEY as `0x${string}`);
 
@@ -66,7 +66,7 @@ agent only sees its own rows.
 ## Errors
 
 ```ts
-import { MnemeError } from "@mneme/sdk";
+import { MnemeError } from "mneme-sdk";
 
 try {
   await m.memories.insert({ text: "hi" });

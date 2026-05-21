@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { privateKeyToAccount } from "viem/accounts";
-import { Mneme, COLUMN_TYPES } from "@mneme/sdk";
+import { Mneme, COLUMN_TYPES } from "mneme-sdk";
 
 const PRIVATE_KEY = process.env.MNEME_AGENT_PRIVATE_KEY as `0x${string}` | undefined;
 if (!PRIVATE_KEY) {

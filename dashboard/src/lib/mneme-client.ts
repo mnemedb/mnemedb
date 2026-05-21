@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Mneme } from "@mneme/sdk";
+import { Mneme } from "mneme-sdk";
 import { useSession } from "./session";
 
 const GATEWAY_URL = import.meta.env.VITE_MNEME_GATEWAY_URL ?? "http://localhost:8787";

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useAccount, useDisconnect, useWalletClient } from "wagmi";
+import { useLogout, usePrivy, useSignTypedData } from "@privy-io/react-auth";
+import type { Address } from "viem";
 import { createProject } from "../lib/onboard";
 import { useSession } from "../lib/session";
 
@@ -10,10 +11,12 @@ interface Props {
 }
 
 export function Onboarding({ onCreated }: Props) {
-  const { address } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { data: walletClient } = useWalletClient();
+  const { user } = usePrivy();
+  const { logout } = useLogout();
+  const { signTypedData } = useSignTypedData();
   const { adopt } = useSession();
+
+  const address = user?.wallet?.address as Address | undefined;
 
   const [handle, setHandle] = useState("");
   const [busy,   setBusy]   = useState(false);
@@ -22,10 +25,10 @@ export function Onboarding({ onCreated }: Props) {
   const valid = HANDLE_RX.test(handle);
 
   const submit = async () => {
-    if (!walletClient || !address || !valid) return;
+    if (!address || !valid) return;
     setBusy(true);
     setError(null);
-    const r = await createProject({ walletClient, wallet: address, handle });
+    const r = await createProject({ signTypedData, wallet: address, handle });
     setBusy(false);
     if (r.ok) {
       adopt(r.session);
@@ -41,19 +44,19 @@ export function Onboarding({ onCreated }: Props) {
         <div className="flex items-center justify-between text-xs text-ink-500 font-mono mb-4">
           <span>{address?.slice(0, 6)}…{address?.slice(-4)}</span>
           <button
-            onClick={() => disconnect()}
+            onClick={() => logout()}
             className="text-ink-500 hover:text-white transition"
           >
-            disconnect
+            sign out
           </button>
         </div>
 
         <h1 className="text-2xl font-semibold mb-2">Pick your handle</h1>
         <p className="text-ink-400 text-sm mb-6">
           Your handle names your Mneme project. You'll be reachable as{" "}
-          <span className="font-mono">handle.mneme</span>. We provision a dedicated
-          Postgres schema with 4 agent tables, ready to use from your code, from
-          Claude/Cursor via MCP, and from this dashboard.
+          <span className="font-mono">handle.mneme</span>. We provision a
+          dedicated Postgres schema with 4 agent tables, ready to use from your
+          code, from Claude/Cursor via MCP, and from this dashboard.
         </p>
 
         <div className="relative">
@@ -78,14 +81,14 @@ export function Onboarding({ onCreated }: Props) {
 
         <button
           onClick={submit}
-          disabled={!valid || busy || !walletClient}
+          disabled={!valid || busy || !address}
           className="w-full mt-6 bg-white text-black py-3 rounded-xl font-medium hover:bg-marble-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
-          {busy ? "Signing & creating…" : "Create my Mneme project"}
+          {busy ? "Creating…" : "Create my Mneme project"}
         </button>
 
         <p className="text-xs text-ink-500 mt-4 text-center">
-          One signature creates your project AND opens a 24-hour session.
+          Signed by your wallet — silent for email/passkey logins. No gas.
         </p>
       </div>
     </div>

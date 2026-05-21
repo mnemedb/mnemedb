@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
-import { useAccount } from "wagmi";
+import { useEffect, useRef, useState } from "react";
+import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { ConnectButton } from "./components/ConnectButton";
 import { Landing } from "./components/Landing";
 import { Onboarding } from "./components/Onboarding";
@@ -14,41 +13,42 @@ type View = "home" | "tables" | "settings";
 
 export function App() {
   const { ready, authenticated } = usePrivy();
-  const { address } = useAccount();
-  const { session, sign, busy: sessionBusy, error: sessionError } = useSession();
+  const { session, sign, busy: sessionBusy, error: sessionError, address } = useSession();
   const { data: project, isLoading: projLoading, refetch: refetchProject } = useProjectMe();
 
   const [view, setView] = useState<View>("home");
 
-  // ─── Auto-sign Mneme session as soon as Privy is ready + wallet is in ───
-  // Privy embedded wallets sign silently (no popup), so this is invisible to
-  // the user. External wallets (MetaMask) will show their standard popup.
+  // Auto-sign Mneme session exactly once when Privy is fully ready + address is in.
+  // Use a ref so re-renders (from session/loading state churn) don't re-trigger.
+  const autoSigned = useRef(false);
   useEffect(() => {
-    if (ready && authenticated && address && !session && !sessionBusy) {
-      void sign();
-    }
+    if (!authenticated) { autoSigned.current = false; return; }
+    if (autoSigned.current) return;
+    if (!ready || !address || session || sessionBusy) return;
+    autoSigned.current = true;
+    void sign();
   }, [ready, authenticated, address, session, sessionBusy, sign]);
 
   // ─── 1. Privy still booting ────────────────────────────────────────────────
-  if (!ready) return <FullScreen msg="Loading…" />;
+  if (!ready) return <FullScreen msg="Loading Mneme…" />;
 
   // ─── 2. Not logged in → marketing landing ──────────────────────────────────
   if (!authenticated) return <Landing />;
 
-  // ─── 3. Logged in, waiting for embedded wallet to be ready ─────────────────
+  // ─── 3. Logged in, embedded wallet still spinning up ───────────────────────
   if (!address) return <FullScreen msg="Preparing your wallet…" />;
 
-  // ─── 4. Have wallet, no session yet — auto-sign is running ─────────────────
+  // ─── 4. Have wallet, no session yet — auto-sign in flight ─────────────────
   if (!session) {
     return (
       <FullScreen
         msg={
           sessionError
             ? `Couldn't open a session: ${sessionError}`
-            : sessionBusy
-              ? "Opening your session…"
-              : "Preparing your session…"
+            : "Opening your session…"
         }
+        actionLabel={sessionError ? "Retry" : undefined}
+        onAction={sessionError ? () => { autoSigned.current = false; void sign(); } : undefined}
       />
     );
   }
@@ -57,9 +57,7 @@ export function App() {
   if (projLoading) return <FullScreen msg="Loading your project…" />;
 
   // ─── 6. Session present, no project → onboarding ──────────────────────────
-  if (!project) {
-    return <Onboarding onCreated={() => refetchProject()} />;
-  }
+  if (!project) return <Onboarding onCreated={() => refetchProject()} />;
 
   // ─── 7. Full app shell ─────────────────────────────────────────────────────
   return (
@@ -103,12 +101,29 @@ function NavItem({ active, onClick, label }: { active: boolean; onClick: () => v
   );
 }
 
-function FullScreen({ msg }: { msg: string }) {
+function FullScreen({
+  msg,
+  actionLabel,
+  onAction,
+}: {
+  msg:          string;
+  actionLabel?: string;
+  onAction?:    () => void;
+}) {
   return (
     <div className="flex items-center justify-center min-h-screen bg-ink-950 text-ink-400 text-sm">
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-4 px-6 text-center">
+        <Logo size={36} />
         <div className="w-8 h-8 rounded-full border-2 border-ink-700 border-t-gold-300 animate-spin" />
-        <div>{msg}</div>
+        <div className="max-w-sm">{msg}</div>
+        {actionLabel && onAction && (
+          <button
+            onClick={onAction}
+            className="mt-2 px-4 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-marble-100 transition"
+          >
+            {actionLabel}
+          </button>
+        )}
       </div>
     </div>
   );

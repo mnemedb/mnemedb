@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount, useWalletClient } from "wagmi";
+import { usePrivy, useSignTypedData } from "@privy-io/react-auth";
 import type { Address } from "viem";
 
 const GATEWAY = import.meta.env.VITE_MNEME_GATEWAY_URL ?? "http://localhost:8787";
-const SESSION_LIFETIME = 86_400; // 24h, must match gateway
+const SESSION_LIFETIME = 86_400; // 24h
 const STORAGE_PREFIX = "mneme:session:";
 
 const sessionTypes = {
@@ -14,7 +14,7 @@ const sessionTypes = {
     { name: "expires_at", type: "uint256" },
     { name: "nonce",      type: "string"  },
   ],
-} as const;
+};
 
 export interface Session {
   wallet:       Address;
@@ -33,7 +33,6 @@ function loadFromStorage(wallet: Address): Session | null {
     const raw = localStorage.getItem(storageKey(wallet));
     if (!raw) return null;
     const s = JSON.parse(raw) as Session;
-    // 60s buffer so we re-sign before the gateway rejects.
     if (s.expires_at < Math.floor(Date.now() / 1000) + 60) {
       localStorage.removeItem(storageKey(wallet));
       return null;
@@ -52,10 +51,17 @@ function clearStorage(wallet: Address) {
   localStorage.removeItem(storageKey(wallet));
 }
 
+/**
+ * Mneme session backed by a Privy wallet (embedded or connected). Uses Privy's
+ * useSignTypedData hook directly — bypasses wagmi to avoid the post-login race
+ * where wagmi's useWalletClient lags behind Privy auth state.
+ */
 export function useSession() {
   const qc = useQueryClient();
-  const { address } = useAccount();
-  const { data: walletClient } = useWalletClient();
+  const { user } = usePrivy();
+  const { signTypedData } = useSignTypedData();
+  const address = user?.wallet?.address as Address | undefined;
+
   const [busy, setBusy]   = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,8 +91,8 @@ export function useSession() {
   }, [address, qc]);
 
   const sign = useCallback(async (): Promise<Session | null> => {
-    if (!walletClient || !address) {
-      setError("wallet not connected");
+    if (!address) {
+      setError("wallet not ready");
       return null;
     }
     setBusy(true);
@@ -97,18 +103,23 @@ export function useSession() {
       const expires_at = issued_at + SESSION_LIFETIME;
       const nonce      = crypto.randomUUID();
 
-      const signature = await walletClient.signTypedData({
-        account:     address,
-        domain:      { name: "Mneme", version: "1", chainId: 8453 },
-        types:       sessionTypes,
-        primaryType: "MnemeSession",
-        message: {
-          wallet:     address,
-          issued_at:  BigInt(issued_at),
-          expires_at: BigInt(expires_at),
-          nonce,
+      // Privy embedded wallets sign silently (no popup) when the user already
+      // authenticated via Privy. External wallets (MetaMask) show their own popup.
+      const result = await signTypedData(
+        {
+          domain:      { name: "Mneme", version: "1", chainId: 8453 },
+          types:       sessionTypes,
+          primaryType: "MnemeSession",
+          message: {
+            wallet:     address,
+            issued_at:  BigInt(issued_at),
+            expires_at: BigInt(expires_at),
+            nonce,
+          },
         },
-      });
+        { uiOptions: { showWalletUIs: false } },
+      );
+      const signature = typeof result === "string" ? result : result.signature;
 
       const res = await fetch(`${GATEWAY}/sessions`, {
         method:  "POST",
@@ -125,7 +136,9 @@ export function useSession() {
         error?: unknown; access_token?: string; expires_at?: number;
       };
       if (!res.ok) {
-        const e = typeof json.error === "string" ? json.error : JSON.stringify(json.error ?? "session failed");
+        const e = typeof json.error === "string"
+          ? json.error
+          : JSON.stringify(json.error ?? "session failed");
         setError(e);
         return null;
       }
@@ -143,7 +156,7 @@ export function useSession() {
     } finally {
       setBusy(false);
     }
-  }, [walletClient, address, qc]);
+  }, [signTypedData, address, qc]);
 
-  return { session, sign, adopt, clear, busy, error };
+  return { session, sign, adopt, clear, busy, error, address };
 }

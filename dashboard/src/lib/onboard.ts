@@ -1,4 +1,5 @@
-import type { Address, WalletClient } from "viem";
+import type { Address } from "viem";
+import type { SignTypedDataParams } from "@privy-io/react-auth";
 
 const GATEWAY = import.meta.env.VITE_MNEME_GATEWAY_URL ?? "http://localhost:8787";
 
@@ -7,12 +8,17 @@ const createTypes = {
     { name: "handle",    type: "string"  },
     { name: "timestamp", type: "uint256" },
   ],
-} as const;
+};
+
+export type SignTypedDataFn = (
+  params: SignTypedDataParams,
+  options?: { uiOptions?: { showWalletUIs?: boolean } },
+) => Promise<string | { signature: string }>;
 
 export interface OnboardInput {
-  walletClient: WalletClient;
-  wallet:       Address;
-  handle:       string;
+  signTypedData: SignTypedDataFn;
+  wallet:        Address;
+  handle:        string;
 }
 
 export type OnboardResult =
@@ -24,23 +30,27 @@ export type OnboardResult =
   | { ok: false; error: string };
 
 /**
- * Sign a CreateProject typed-data message and POST to /projects. On success,
- * the gateway provisions the schema AND mints a session JWT in the same
- * round-trip, so onboarding is exactly one signature.
+ * Sign a CreateProject typed-data message via Privy and POST to /projects.
+ * Privy embedded wallets sign silently; external wallets show their own UI.
+ * On success, the gateway provisions the schema AND mints a session JWT in the
+ * same round-trip, so onboarding is one signature (or zero if embedded wallet).
  */
 export async function createProject(input: OnboardInput): Promise<OnboardResult> {
   const timestamp = Math.floor(Date.now() / 1000);
 
-  const signature = await input.walletClient.signTypedData({
-    account:     input.wallet,
-    domain:      { name: "Mneme", version: "1", chainId: 8453 },
-    types:       createTypes,
-    primaryType: "CreateProject",
-    message: {
-      handle:    input.handle,
-      timestamp: BigInt(timestamp),
+  const result = await input.signTypedData(
+    {
+      domain:      { name: "Mneme", version: "1", chainId: 8453 },
+      types:       createTypes,
+      primaryType: "CreateProject",
+      message: {
+        handle:    input.handle,
+        timestamp: BigInt(timestamp),
+      },
     },
-  });
+    { uiOptions: { showWalletUIs: false } },
+  );
+  const signature = typeof result === "string" ? result : result.signature;
 
   const res = await fetch(`${GATEWAY}/projects`, {
     method:  "POST",

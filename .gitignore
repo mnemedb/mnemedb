@@ -7,6 +7,13 @@ node_modules/
 .env.*.local
 !.env.example
 
+# secrets & recovery codes — never commit
+*recovery_code*
+*recovery_codes*
+*.secret
+*.pem
+*.key
+
 # build artifacts
 dist/
 build/

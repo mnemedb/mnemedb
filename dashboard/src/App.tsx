@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "./components/ConnectButton";
 import { Landing } from "./components/Landing";
-import { SignInGate } from "./components/SignInGate";
 import { Onboarding } from "./components/Onboarding";
 import { ProjectHome } from "./components/ProjectHome";
 import { TablesView } from "./components/TablesView";
@@ -11,50 +11,57 @@ import { useSession } from "./lib/session";
 import { useProjectMe } from "./lib/project";
 
 type View = "home" | "tables" | "settings";
-type Intent = "signin" | "create" | null;
 
 export function App() {
-  const { isConnected } = useAccount();
-  const { session } = useSession();
+  const { ready, authenticated } = usePrivy();
+  const { address } = useAccount();
+  const { session, sign, busy: sessionBusy, error: sessionError } = useSession();
   const { data: project, isLoading: projLoading, refetch: refetchProject } = useProjectMe();
 
-  const [view, setView]     = useState<View>("home");
-  const [intent, setIntent] = useState<Intent>(null);
+  const [view, setView] = useState<View>("home");
 
-  // ───── 1. Not connected → marketing landing ────────────────────────────────
-  if (!isConnected) return <Landing />;
-
-  // ───── 2. Connected, but no session yet ────────────────────────────────────
-  if (!session) {
-    if (intent === "create") {
-      // Single signature: create project + receive session.
-      return (
-        <Onboarding
-          onCreated={() => {
-            setIntent(null);
-            refetchProject();
-          }}
-        />
-      );
+  // ─── Auto-sign Mneme session as soon as Privy is ready + wallet is in ───
+  // Privy embedded wallets sign silently (no popup), so this is invisible to
+  // the user. External wallets (MetaMask) will show their standard popup.
+  useEffect(() => {
+    if (ready && authenticated && address && !session && !sessionBusy) {
+      void sign();
     }
-    // Default: ask user what they want.
+  }, [ready, authenticated, address, session, sessionBusy, sign]);
+
+  // ─── 1. Privy still booting ────────────────────────────────────────────────
+  if (!ready) return <FullScreen msg="Loading…" />;
+
+  // ─── 2. Not logged in → marketing landing ──────────────────────────────────
+  if (!authenticated) return <Landing />;
+
+  // ─── 3. Logged in, waiting for embedded wallet to be ready ─────────────────
+  if (!address) return <FullScreen msg="Preparing your wallet…" />;
+
+  // ─── 4. Have wallet, no session yet — auto-sign is running ─────────────────
+  if (!session) {
     return (
-      <SignInGate
-        onSignedIn={() => setIntent("signin")}
-        onCreateNew={() => setIntent("create")}
+      <FullScreen
+        msg={
+          sessionError
+            ? `Couldn't open a session: ${sessionError}`
+            : sessionBusy
+              ? "Opening your session…"
+              : "Preparing your session…"
+        }
       />
     );
   }
 
-  // ───── 3. Session present, project lookup running ─────────────────────────
+  // ─── 5. Session present, project lookup running ───────────────────────────
   if (projLoading) return <FullScreen msg="Loading your project…" />;
 
-  // ───── 4. Session present, but no project for this wallet → onboarding ────
+  // ─── 6. Session present, no project → onboarding ──────────────────────────
   if (!project) {
     return <Onboarding onCreated={() => refetchProject()} />;
   }
 
-  // ───── 5. Full app shell ──────────────────────────────────────────────────
+  // ─── 7. Full app shell ─────────────────────────────────────────────────────
   return (
     <div className="h-full flex flex-col bg-ink-950 text-white font-sans antialiased">
       <header className="flex items-center justify-between px-6 py-4 border-b border-ink-900">
@@ -98,8 +105,11 @@ function NavItem({ active, onClick, label }: { active: boolean; onClick: () => v
 
 function FullScreen({ msg }: { msg: string }) {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-ink-950 text-ink-500 text-sm">
-      {msg}
+    <div className="flex items-center justify-center min-h-screen bg-ink-950 text-ink-400 text-sm">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 rounded-full border-2 border-ink-700 border-t-gold-300 animate-spin" />
+        <div>{msg}</div>
+      </div>
     </div>
   );
 }

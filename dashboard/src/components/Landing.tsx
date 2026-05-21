@@ -1,15 +1,13 @@
-import { useConnect } from "wagmi";
+import { useLogin } from "@privy-io/react-auth";
 import { StatusBadge } from "./StatusBadge";
 
 export function Landing() {
-  const { connectors, connect, status, error } = useConnect();
-  const smart    = connectors.find((c) => c.id === "coinbaseWalletSDK") ?? connectors[0];
-  const injected = connectors.find((c) => c.id === "injected");
-  const pending  = status === "pending";
+  const { login } = useLogin();
 
-  const startCreate  = () => smart    && connect({ connector: smart });
-  const startSignIn  = () => smart    && connect({ connector: smart });
-  const startInject  = () => injected && connect({ connector: injected });
+  // Single login call — Privy modal handles all the auth UX (email, google,
+  // twitter, apple, or connect existing wallet). After login Privy creates an
+  // embedded wallet if needed, then App.tsx auto-signs a Mneme session.
+  const signIn = () => login();
 
   return (
     <div className="min-h-screen bg-ink-950 text-white font-sans antialiased selection:bg-gold-400/30 selection:text-white">
@@ -37,8 +35,7 @@ export function Landing() {
             GitHub
           </a>
           <button
-            onClick={startSignIn}
-            disabled={pending}
+            onClick={signIn}
             className="text-ink-300 hover:text-white text-sm transition"
           >
             Sign in
@@ -71,34 +68,19 @@ export function Landing() {
               agents create the tables they need at runtime. Authenticated by
               their wallet — no API keys to leak.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <div className="pt-2">
               <button
-                onClick={startCreate}
-                disabled={pending}
-                className="px-6 py-3 rounded-xl bg-white text-black font-medium hover:bg-marble-100 disabled:opacity-50 transition"
+                onClick={signIn}
+                className="px-6 py-3 rounded-xl bg-white text-black font-medium hover:bg-marble-100 transition"
               >
-                Create your project
-              </button>
-              <button
-                onClick={startSignIn}
-                disabled={pending}
-                className="px-6 py-3 rounded-xl bg-ink-900 border border-ink-800 text-white font-medium hover:bg-ink-800 disabled:opacity-50 transition"
-              >
-                Sign in
+                Sign in to Mneme
               </button>
             </div>
-            <div className="text-xs text-ink-500 pt-2 leading-relaxed">
-              Email + passkey via Coinbase Smart Wallet (no extension), or{" "}
-              {injected ? (
-                <button onClick={startInject} className="text-ink-300 underline hover:text-white">
-                  connect MetaMask / Rabby
-                </button>
-              ) : "connect any injected wallet"}
-              .
-              <br />
-              We only ever ask for a signature — never an onchain transaction. No gas, no funds moved.
+            <div className="text-xs text-ink-500 pt-2 leading-relaxed max-w-md">
+              Continue with email, Google, X, Apple — or connect your own
+              wallet. No browser extension required, no seed phrase to lose.
+              We never ask for an onchain transaction, only message signatures.
             </div>
-            {error && <div className="text-sm text-red-400">{error.message}</div>}
           </div>
         </div>
       </section>
@@ -207,7 +189,7 @@ const { matches } = await m.vectorSearch({
                 <Row label="Custom tables at runtime" mneme="✓ via createTable()" others="✗ fixed shape"             raw="✓ but you write the migrations" />
                 <Row label="Vector search any column" mneme="✓ pgvector built-in"   others="partial — vector only"     raw="✓ but you configure pgvector" />
                 <Row label="text / int / jsonb / uuid / date" mneme="✓ all"          others="✗ memory schema only"      raw="✓"                              />
-                <Row label="Auth"                       mneme="wallet (EIP-712, ERC-1271)" others="API key"            raw="email + JWT or API key"          />
+                <Row label="Auth"                       mneme="email / google / X / wallet" others="API key"            raw="email + JWT or API key"          />
                 <Row label="MCP server for Claude/Cursor" mneme="✓ npm i -g mneme-mcp" others="growing"                 raw="✗ build it yourself"             />
                 <Row label="Per-tenant schema isolation" mneme="✓ automatic"          others="per-API-key"             raw="manual RLS setup"                />
                 <Row label="Onchain identity (Phase 2)" mneme="✓ via wallet"          others="✗"                        raw="✗"                              />
@@ -255,17 +237,17 @@ const { matches } = await m.vectorSearch({
             Because there are no API keys to leak.
           </h2>
           <p className="text-ink-300 leading-relaxed">
-            Every request to Mneme is signed by your wallet — EIP-712 typed data,
-            verified at the gateway. EOA sigs are checked with ECDSA;
-            smart-contract wallets (Coinbase Smart Wallet, Safe) verify via
-            ERC-1271 / 6492 against Base.
+            You sign in with email, Google, X, Apple, or your own wallet. If you
+            don't already have a wallet, one is created for you behind a passkey
+            — you never see crypto UI unless you want to. The wallet just
+            authenticates your requests in place of an API key.
           </p>
           <p className="text-ink-300 leading-relaxed mt-3">
-            Sign in once with email — we use a passkey under the hood, via
-            Coinbase Smart Wallet — and Mneme issues a 24-hour session token
-            stored in your browser. No gas, no transactions, no funds moved.
-            Your data lives in a Postgres schema isolated by your wallet
-            address.
+            Every request to the gateway is signed by your wallet (EIP-712).
+            EOA sigs are verified with ECDSA; smart-contract wallets verify via
+            ERC-1271 / 6492 against Base. Your data lives in a Postgres schema
+            isolated by your wallet address. No gas, no transactions, no funds
+            moved — Mneme only ever asks for message signatures.
           </p>
           <p className="text-ink-200 leading-relaxed mt-4">
             <strong>We never see passwords. You never see infrastructure.</strong>
@@ -309,10 +291,9 @@ const { matches } = await m.vectorSearch({
               (Phase 2 brings JOIN/WHERE; right now it's LIST + vector search).
             </Faq>
             <Faq q="Do I have to know crypto / web3?">
-              No. Sign up with email — Coinbase Smart Wallet creates a wallet
-              for you behind a passkey, no extension required, no seed phrase.
-              You never see "crypto" UI unless you want to. The wallet is just
-              how Mneme authenticates you instead of an API key.
+              No. Sign in with email, Google, X, or Apple — we create a wallet
+              for you behind a passkey, you never see crypto UI. The wallet is
+              just how Mneme authenticates you instead of an API key.
             </Faq>
             <Faq q="Will Mneme ever ask me to sign an onchain transaction?">
               Not in the MVP. Every interaction is a message signature
@@ -322,8 +303,10 @@ const { matches } = await m.vectorSearch({
               ask for a real transaction, and it's opt-in.
             </Faq>
             <Faq q="Where is my data?">
-              On a Postgres + pgvector instance we manage (Neon, Frankfurt). Every
-              project is a fully isolated schema (<code className="font-mono text-gold-300/80">agent_&lt;handle&gt;</code>) — no shared rows, no cross-tenant access.
+              On a Postgres + pgvector instance we manage (Neon, Frankfurt).
+              Every project is a fully isolated schema
+              (<code className="font-mono text-gold-300/80">agent_&lt;handle&gt;</code>) —
+              no shared rows, no cross-tenant access.
             </Faq>
             <Faq q="Can I self-host?">
               Yes — the gateway is Bun + Hono, ~700 lines of TypeScript, fully
@@ -365,11 +348,10 @@ const { matches } = await m.vectorSearch({
           </h2>
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <button
-              onClick={startCreate}
-              disabled={pending}
-              className="px-6 py-3 rounded-xl bg-white text-black font-medium hover:bg-marble-100 disabled:opacity-50 transition"
+              onClick={signIn}
+              className="px-6 py-3 rounded-xl bg-white text-black font-medium hover:bg-marble-100 transition"
             >
-              Create your project
+              Sign in to Mneme
             </button>
             <a
               href="https://github.com/mnemedb/mnemedb"

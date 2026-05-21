@@ -1,17 +1,11 @@
-import { createConfig, http } from "wagmi";
+import { http } from "wagmi";
 import { base } from "wagmi/chains";
-import { coinbaseWallet, injected } from "wagmi/connectors";
+import { createConfig } from "@privy-io/wagmi";
 
+// Wagmi config provided by Privy — injects Privy-managed wallets (embedded
+// + connected) as wagmi accounts so all our existing useAccount/useWalletClient
+// code keeps working without changes.
 export const wagmiConfig = createConfig({
   chains: [base],
-  connectors: [
-    // Primary: Coinbase Smart Wallet — passkey, email signup, no browser extension.
-    coinbaseWallet({
-      appName:    "Mneme",
-      preference: "smartWalletOnly",
-    }),
-    // Fallback: any injected wallet (MetaMask, Rabby, Brave Wallet, …).
-    injected(),
-  ],
   transports: { [base.id]: http() },
 });

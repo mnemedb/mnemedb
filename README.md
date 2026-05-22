@@ -52,7 +52,7 @@ default tables are a head start, not a ceiling.
 
 ## Monorepo
 
-| Workspace | Açıklama |
+| Workspace | Description |
 |---|---|
 | `contracts/` | Foundry — `AgentRegistry` (Phase 2 onchain handle layer) |
 | `gateway/`   | Bun + Hono — direct Postgres, schema-per-project, runtime DDL, wallet auth |

@@ -88,6 +88,132 @@ export async function initDb() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS _mneme_projects_handle_idx ON _mneme_projects (handle)`;
+
+  // ─── Storage quotas ─────────────────────────────────────────────────────
+  // One row per wallet. `bytes_used` is maintained by storage routes on
+  // upload/delete (best-effort — periodic reconcile can true it up).
+  // `bonus_bytes` and `bonus_expires_at` come from $MNEME burns.
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_storage_quotas (
+      wallet            text primary key,
+      bytes_used        bigint not null default 0,
+      bonus_bytes       bigint not null default 0,
+      bonus_expires_at  timestamptz,
+      updated_at        timestamptz default now()
+    )
+  `;
+  // Idempotent ledger of every burn we've credited (don't double-credit
+  // the same tx hash). Stores the user-submitted tx_hash for audit.
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_storage_burns (
+      tx_hash       text primary key,
+      wallet        text not null,
+      amount_raw    text not null,
+      bytes_added   bigint not null,
+      days_added    int not null,
+      created_at    timestamptz default now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_storage_burns_wallet_idx ON _mneme_storage_burns (wallet)`;
+}
+
+// ─── Storage quota helpers ──────────────────────────────────────────────
+export const FREE_TIER_BYTES = 100 * 1024 * 1024;  // 100 MB per wallet, forever
+
+export interface StorageQuota {
+  wallet:           string;
+  bytes_used:       number;
+  bytes_limit:      number;       // free + non-expired bonus
+  bytes_available:  number;
+  bonus_expires_at: Date | null;
+}
+
+export async function getStorageQuota(wallet: string): Promise<StorageQuota> {
+  const w = wallet.toLowerCase();
+  const rows = await sql<Array<{
+    bytes_used:       string;
+    bonus_bytes:      string;
+    bonus_expires_at: Date | null;
+  }>>`
+    SELECT bytes_used, bonus_bytes, bonus_expires_at
+    FROM _mneme_storage_quotas WHERE wallet = ${w}
+  `;
+  if (rows.length === 0) {
+    return {
+      wallet:           w,
+      bytes_used:       0,
+      bytes_limit:      FREE_TIER_BYTES,
+      bytes_available:  FREE_TIER_BYTES,
+      bonus_expires_at: null,
+    };
+  }
+  const r = rows[0];
+  const bonusActive = r.bonus_expires_at && r.bonus_expires_at > new Date();
+  const bonus       = bonusActive ? Number(r.bonus_bytes) : 0;
+  const used        = Number(r.bytes_used);
+  const limit       = FREE_TIER_BYTES + bonus;
+  return {
+    wallet:           w,
+    bytes_used:       used,
+    bytes_limit:      limit,
+    bytes_available:  Math.max(0, limit - used),
+    bonus_expires_at: bonusActive ? r.bonus_expires_at : null,
+  };
+}
+
+export async function adjustBytesUsed(wallet: string, delta: number): Promise<void> {
+  const w = wallet.toLowerCase();
+  await sql`
+    INSERT INTO _mneme_storage_quotas (wallet, bytes_used, updated_at)
+    VALUES (${w}, GREATEST(0, ${delta}::bigint), now())
+    ON CONFLICT (wallet) DO UPDATE
+    SET bytes_used = GREATEST(0, _mneme_storage_quotas.bytes_used + ${delta}::bigint),
+        updated_at = now()
+  `;
+}
+
+export async function creditBurn(args: {
+  tx_hash:     string;
+  wallet:      string;
+  amount_raw:  string;        // decimal string, raw token units (18 decimals)
+  bytes_added: number;
+  days_added:  number;
+}): Promise<{ credited: boolean; new_expires_at: Date }> {
+  const w = args.wallet.toLowerCase();
+  // INSERT ... ON CONFLICT DO NOTHING — atomic single-credit guarantee.
+  const inserted = await sql<Array<{ tx_hash: string }>>`
+    INSERT INTO _mneme_storage_burns (tx_hash, wallet, amount_raw, bytes_added, days_added)
+    VALUES (${args.tx_hash.toLowerCase()}, ${w}, ${args.amount_raw}, ${args.bytes_added}, ${args.days_added})
+    ON CONFLICT (tx_hash) DO NOTHING
+    RETURNING tx_hash
+  `;
+  if (inserted.length === 0) {
+    // Already credited — return current expiry without mutating.
+    const cur = await sql<Array<{ bonus_expires_at: Date | null }>>`
+      SELECT bonus_expires_at FROM _mneme_storage_quotas WHERE wallet = ${w}
+    `;
+    return { credited: false, new_expires_at: cur[0]?.bonus_expires_at ?? new Date() };
+  }
+  // Extend bonus. If existing bonus is still active, extend from its expiry;
+  // otherwise start from now.
+  const result = await sql<Array<{ bonus_expires_at: Date }>>`
+    INSERT INTO _mneme_storage_quotas (wallet, bonus_bytes, bonus_expires_at, updated_at)
+    VALUES (
+      ${w},
+      ${args.bytes_added}::bigint,
+      now() + (${args.days_added} || ' days')::interval,
+      now()
+    )
+    ON CONFLICT (wallet) DO UPDATE SET
+      bonus_bytes      = _mneme_storage_quotas.bonus_bytes + ${args.bytes_added}::bigint,
+      bonus_expires_at = GREATEST(
+        COALESCE(_mneme_storage_quotas.bonus_expires_at, now()),
+        now()
+      ) + (${args.days_added} || ' days')::interval,
+      updated_at = now()
+    RETURNING bonus_expires_at
+  `;
+  return { credited: true, new_expires_at: result[0].bonus_expires_at };
 }
 
 // ─── Project lookups (cached) ────────────────────────────────────────────────

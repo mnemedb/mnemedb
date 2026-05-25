@@ -9,6 +9,7 @@ import { vectorRoute } from "./routes/vector";
 import { statsRoute } from "./routes/stats";
 import { projectsPublic, projectsMe } from "./routes/projects";
 import { sessionsRoute } from "./routes/sessions";
+import { storageRoute } from "./routes/storage";
 
 const app = new Hono();
 
@@ -27,6 +28,7 @@ app.use("/v1/*", authMiddleware);
 app.route("/v1/tables",      tablesRoute);
 app.route("/v1/rows",        rowsRoute);
 app.route("/v1/vector",      vectorRoute);
+app.route("/v1/storage",     storageRoute);
 app.route("/v1/stats",       statsRoute);
 app.route("/v1/projects/me", projectsMe);
 

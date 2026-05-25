@@ -14,6 +14,10 @@ node_modules/
 *.pem
 *.key
 
+# scripts with hardcoded private keys (single-user demos)
+scripts/demo-app.ts
+scripts/test-real-wallet.ts
+
 # build artifacts
 dist/
 build/

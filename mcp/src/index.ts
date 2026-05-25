@@ -117,5 +117,111 @@ server.registerTool(
   },
 );
 
+// ─── Storage (R2 + $MNEME burn) ───────────────────────────────────────────
+server.registerTool(
+  "mneme_storage_upload",
+  {
+    title: "Upload a file to wallet-bound storage",
+    description:
+      "Upload a file to Mneme storage (Cloudflare R2 backend). Pass content as a base64 string. Visibility 'public' makes the file readable at cdn.mnemedb.dev/<handle>/public/<key>; 'private' requires a presigned URL via mneme_storage_url. 100 MB free tier per wallet; burn $MNEME to extend.",
+    inputSchema: {
+      key:            z.string(),
+      content_base64: z.string(),
+      visibility:     z.enum(["public", "private"]).optional(),
+      content_type:   z.string().optional(),
+    },
+  },
+  async ({ key, content_base64, visibility, content_type }) => {
+    const bytes = Buffer.from(content_base64, "base64");
+    const r = await mneme.storage.upload({
+      key,
+      file:        bytes,
+      visibility,
+      contentType: content_type,
+    });
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
+server.registerTool(
+  "mneme_storage_list",
+  {
+    title: "List files in wallet-bound storage",
+    description: "List storage objects for this wallet. Default visibility = private. Pass prefix to filter.",
+    inputSchema: {
+      visibility: z.enum(["public", "private"]).optional(),
+      prefix:     z.string().optional(),
+    },
+  },
+  async (args) => {
+    const r = await mneme.storage.list(args);
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
+server.registerTool(
+  "mneme_storage_delete",
+  {
+    title: "Delete a file from wallet-bound storage",
+    description: "Delete a storage object. Visibility defaults to private. Returns freed bytes.",
+    inputSchema: {
+      key:        z.string(),
+      visibility: z.enum(["public", "private"]).optional(),
+    },
+  },
+  async (args) => {
+    const r = await mneme.storage.delete(args);
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
+server.registerTool(
+  "mneme_storage_url",
+  {
+    title: "Get a presigned URL for a stored file",
+    description:
+      "Returns a time-limited HTTPS URL for a stored file. Required for 'private' visibility. For 'public' visibility, prefer the direct cdn.mnemedb.dev URL returned from upload.",
+    inputSchema: {
+      key:        z.string(),
+      visibility: z.enum(["public", "private"]).optional(),
+      expiresIn:  z.number().optional(),
+    },
+  },
+  async (args) => {
+    const r = await mneme.storage.url(args);
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
+server.registerTool(
+  "mneme_storage_quota",
+  {
+    title: "Get current storage quota",
+    description:
+      "Returns bytes_used, bytes_limit, bytes_available, and the bonus_expires_at if a $MNEME burn is currently active. Free tier is 100 MB per wallet, forever. Bonus capacity is unlocked by burning $MNEME (see mneme_storage_burn).",
+    inputSchema: {},
+  },
+  async () => {
+    const r = await mneme.storage.quota();
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
+server.registerTool(
+  "mneme_storage_burn",
+  {
+    title: "Credit a $MNEME burn transaction to extend storage quota",
+    description:
+      "Submit a Base mainnet transaction hash that burned $MNEME (sent to 0xdEaD address). The gateway verifies the burn on-chain and credits storage bonus capacity. Tiers: 100 $MNEME = 1 GB / 30d, 1000 = 10 GB / 30d, 10000 = 100 GB / 30d. Each tx hash can only be credited once.",
+    inputSchema: {
+      tx_hash: z.string(),
+    },
+  },
+  async ({ tx_hash }) => {
+    const r = await mneme.storage.burn({ tx_hash });
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
 const transport = new StdioServerTransport();
 await server.connect(transport);

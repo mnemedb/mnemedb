@@ -32,6 +32,29 @@ export interface StatsResponse {
   };
 }
 
+// ─── Binary helpers (used by storage.upload) ──────────────────────────────
+async function toUint8Array(input: Blob | Uint8Array | ArrayBuffer | string): Promise<Uint8Array> {
+  if (input instanceof Uint8Array)   return input;
+  if (input instanceof ArrayBuffer)  return new Uint8Array(input);
+  if (typeof Blob !== "undefined" && input instanceof Blob) {
+    return new Uint8Array(await input.arrayBuffer());
+  }
+  if (typeof input === "string") return new TextEncoder().encode(input);
+  throw new Error("unsupported file type for storage.upload");
+}
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  // Chunked to avoid call-stack overflow on large files
+  const CHUNK = 32768;
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+    parts.push(String.fromCharCode(...bytes.subarray(i, i + CHUNK)));
+  }
+  if (typeof btoa !== "undefined") return btoa(parts.join(""));
+  // Node/Bun fallback
+  return Buffer.from(parts.join(""), "binary").toString("base64");
+}
+
 export class MnemeError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -89,6 +112,94 @@ export class Mneme {
   from<T = unknown>(table: string): Collection<T> {
     return new Collection<T>(this, table);
   }
+
+  // ─── Storage (Cloudflare R2 backend, $MNEME burn quota) ──────────────────
+  readonly storage = {
+    upload: async (args: {
+      key:         string;
+      file:        Blob | Uint8Array | ArrayBuffer | string;
+      visibility?: "public" | "private";
+      contentType?: string;
+    }): Promise<{
+      ok:           true;
+      key:          string;
+      visibility:   "public" | "private";
+      size:         number;
+      content_type: string;
+      public_url?:  string;
+    }> => {
+      const bytes = await toUint8Array(args.file);
+      const content_base64 = uint8ToBase64(bytes);
+      return this.request("POST", "/v1/storage/upload", {
+        key:            args.key,
+        visibility:     args.visibility ?? "private",
+        content_type:   args.contentType ?? "application/octet-stream",
+        content_base64,
+      });
+    },
+
+    list: (args?: { visibility?: "public" | "private"; prefix?: string }) => {
+      const q = new URLSearchParams();
+      if (args?.visibility) q.set("visibility", args.visibility);
+      if (args?.prefix)     q.set("prefix",     args.prefix);
+      return this.request<{
+        visibility: "public" | "private";
+        count:      number;
+        objects: Array<{
+          key:           string;
+          size:          number;
+          last_modified: string;
+          public_url?:   string;
+        }>;
+      }>("GET", `/v1/storage/list${q.toString() ? `?${q}` : ""}`);
+    },
+
+    delete: (args: { key: string; visibility?: "public" | "private" }) => {
+      const q = new URLSearchParams({ key: args.key });
+      if (args.visibility) q.set("visibility", args.visibility);
+      return this.request<{ ok: true; key: string; freed_bytes: number }>(
+        "DELETE",
+        `/v1/storage/object?${q}`,
+      );
+    },
+
+    url: (args: { key: string; visibility?: "public" | "private"; expiresIn?: number }) => {
+      const q = new URLSearchParams({ key: args.key });
+      if (args.visibility) q.set("visibility", args.visibility);
+      if (args.expiresIn != null) q.set("expires_in", String(args.expiresIn));
+      return this.request<{ url: string; expires_in: number }>(
+        "GET",
+        `/v1/storage/url?${q}`,
+      );
+    },
+
+    quota: () =>
+      this.request<{
+        wallet:           string;
+        bytes_used:       number;
+        bytes_limit:      number;
+        bytes_available:  number;
+        free_tier_bytes:  number;
+        bonus_expires_at: string | null;
+      }>("GET", "/v1/storage/quota"),
+
+    /**
+     * Credit a $MNEME burn tx → extend storage capacity.
+     *   100 $MNEME →   1 GB / 30d
+     *   1000 $MNEME →  10 GB / 30d
+     *  10000 $MNEME → 100 GB / 30d
+     */
+    burn: (args: { tx_hash: string }) =>
+      this.request<{
+        ok:             true;
+        tx_hash:        string;
+        burned_tokens:  number;
+        tier:           string;
+        bytes_added:    number;
+        days_added:     number;
+        new_expires_at: string;
+      }>("POST", "/v1/storage/burn", { tx_hash: args.tx_hash }),
+  };
 
   async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
     const bodyText = body === undefined ? "" : JSON.stringify(body);

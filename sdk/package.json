@@ -1,7 +1,7 @@
 {
   "name": "mneme-sdk",
-  "version": "0.0.1",
-  "description": "TypeScript SDK for Mneme — agent-native Postgres database platform on Base. Wallet-auth, runtime DDL, pgvector built-in.",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Mneme — agent-native Postgres + R2 storage on Base. Wallet-auth, runtime DDL, pgvector, wallet-bound files with $MNEME burn quota.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

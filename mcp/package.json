@@ -1,7 +1,7 @@
 {
   "name": "mneme-mcp",
-  "version": "0.0.1",
-  "description": "MCP server for Mneme — let Claude / Cursor / Cline use your agent's Postgres database as tools.",
+  "version": "0.1.0",
+  "description": "MCP server for Mneme — let Claude / Cursor / Cline use your agent's Postgres database AND file storage as tools.",
   "type": "module",
   "bin": {
     "mneme-mcp": "./dist/index.js"

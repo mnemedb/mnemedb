@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSendTransaction, useWallets } from "@privy-io/react-auth";
-import { encodeFunctionData, parseUnits } from "viem";
+import { createPublicClient, encodeFunctionData, formatEther, formatUnits, http, parseUnits } from "viem";
+import { base } from "viem/chains";
 import { useMneme } from "../lib/mneme-client";
 
 const MNEME_TOKEN  = "0x3FcDbEBD5e7BaB79477cFDcA2CDCF6e904C27b07";
@@ -22,15 +23,50 @@ const ERC20_TRANSFER_ABI = [{
   outputs: [{ name: "", type: "bool" }],
 }] as const;
 
+const ERC20_BALANCEOF_ABI = [{
+  type: "function",
+  name: "balanceOf",
+  stateMutability: "view",
+  inputs:  [{ name: "owner", type: "address" }],
+  outputs: [{ name: "", type: "uint256" }],
+}] as const;
+
+const basePublic = createPublicClient({ chain: base, transport: http() });
+
+function useBalances(address?: string) {
+  return useQuery({
+    queryKey: ["balances", address ?? "none"],
+    enabled:  !!address,
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const addr = address as `0x${string}`;
+      const [eth, mneme] = await Promise.all([
+        basePublic.getBalance({ address: addr }),
+        basePublic.readContract({
+          address:     MNEME_TOKEN as `0x${string}`,
+          abi:         ERC20_BALANCEOF_ABI,
+          functionName: "balanceOf",
+          args:        [addr],
+        }) as Promise<bigint>,
+      ]);
+      return { eth, mneme };
+    },
+  });
+}
+
 type Visibility = "public" | "private";
 
 export function StorageView() {
   const mneme = useMneme();
   const qc    = useQueryClient();
+  const { wallets } = useWallets();
+  const walletAddr = wallets[0]?.address;
   const [tab, setTab]           = useState<Visibility>("public");
   const [burnOpen, setBurnOpen] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
   const fileInput               = useRef<HTMLInputElement>(null);
+
+  const { data: balances } = useBalances(walletAddr);
 
   const { data: quota } = useQuery({
     queryKey: ["storage", "quota"],
@@ -94,7 +130,7 @@ export function StorageView() {
       </div>
 
       {/* ─── Quota meter ─────────────────────────────────────────────── */}
-      <QuotaMeter quota={quota} onBurnClick={() => setBurnOpen(true)} />
+      <QuotaMeter quota={quota} balances={balances} onBurnClick={() => setBurnOpen(true)} />
 
       {/* ─── Upload zone ─────────────────────────────────────────────── */}
       <div
@@ -174,9 +210,10 @@ export function StorageView() {
 
 // ─── Quota meter ─────────────────────────────────────────────────────────
 function QuotaMeter({
-  quota, onBurnClick,
+  quota, balances, onBurnClick,
 }: {
   quota?: { bytes_used: number; bytes_limit: number; bytes_available: number; free_tier_bytes: number; bonus_expires_at: string | null };
+  balances?: { eth: bigint; mneme: bigint };
   onBurnClick: () => void;
 }) {
   if (!quota) return <div className="h-24 rounded-xl bg-ink-900 animate-pulse" />;
@@ -203,11 +240,19 @@ function QuotaMeter({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="text-xs text-ink-500 mt-2 flex justify-between">
+      <div className="text-xs text-ink-500 mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <span>{fmt(quota.bytes_available)} available · free tier {fmt(quota.free_tier_bytes)}</span>
-        {quota.bonus_expires_at && (
-          <span className="text-gold-300/80">bonus expires {new Date(quota.bonus_expires_at).toLocaleDateString()}</span>
-        )}
+        <span className="flex items-center gap-3">
+          {balances && (
+            <>
+              <span><span className="text-ink-400">balance:</span> <span className="text-gold-300/90 font-mono">{fmtToken(balances.mneme, 18)}</span> $MNEME</span>
+              <span><span className="text-ink-400">·</span> <span className="font-mono">{fmtEth(balances.eth)}</span> ETH</span>
+            </>
+          )}
+          {quota.bonus_expires_at && (
+            <span className="text-gold-300/80">bonus expires {new Date(quota.bonus_expires_at).toLocaleDateString()}</span>
+          )}
+        </span>
       </div>
     </div>
   );
@@ -296,6 +341,11 @@ function BurnModal({ onClose, onCredited }: { onClose: () => void; onCredited: (
   const [err, setErr]           = useState<string | null>(null);
 
   const wallet = wallets[0];
+  const { data: balances } = useBalances(wallet?.address);
+  const mnemeBalance = balances ? Number(formatUnits(balances.mneme, 18)) : null;
+  const ethBalance   = balances ? Number(formatEther(balances.eth))       : null;
+  const canAfford    = mnemeBalance !== null && mnemeBalance >= selected.tokens;
+  const hasGas       = ethBalance   !== null && ethBalance   >= 0.0005;       // ~enough for the burn tx
 
   const doBurn = async () => {
     if (!wallet || !mneme) return;
@@ -334,35 +384,66 @@ function BurnModal({ onClose, onCredited }: { onClose: () => void; onCredited: (
           <h3 className="text-xl font-semibold">Burn $MNEME for storage</h3>
           <button onClick={onClose} className="text-ink-500 hover:text-white text-xl leading-none">×</button>
         </div>
-        <p className="text-xs text-ink-500 mb-5">
+        <p className="text-xs text-ink-500 mb-4">
           $MNEME is permanently sent to <code className="font-mono">0x…dEaD</code>.
           Each burn is verified on-chain and credits 30 days of bonus capacity.
         </p>
 
-        <div className="space-y-2 mb-5">
-          {BURN_TIERS.map((t) => (
-            <button
-              key={t.tokens}
-              onClick={() => setSelected(t)}
-              className={`w-full flex items-baseline justify-between px-4 py-3 rounded-lg border transition ${
-                selected.tokens === t.tokens
-                  ? "border-gold-300 bg-gold-300/5"
-                  : "border-ink-800 hover:border-ink-700"
-              }`}
-            >
-              <span className="font-mono">{t.tokens.toLocaleString()} $MNEME</span>
-              <span className="text-gold-300">{t.label} / 30d</span>
-            </button>
-          ))}
+        {/* Balance pill */}
+        {balances && (
+          <div className="flex items-center justify-between text-xs bg-ink-950 border border-ink-800 rounded-lg px-3 py-2 mb-4">
+            <span className="text-ink-400">your wallet</span>
+            <span className="flex items-center gap-3 font-mono">
+              <span className="text-gold-300/90">{fmtToken(balances.mneme, 18)} $MNEME</span>
+              <span className="text-ink-600">·</span>
+              <span className={hasGas ? "text-ink-300" : "text-red-400"}>{fmtEth(balances.eth)} ETH</span>
+            </span>
+          </div>
+        )}
+
+        <div className="space-y-2 mb-4">
+          {BURN_TIERS.map((t) => {
+            const affordable = mnemeBalance === null || mnemeBalance >= t.tokens;
+            return (
+              <button
+                key={t.tokens}
+                onClick={() => setSelected(t)}
+                className={`w-full flex items-baseline justify-between px-4 py-3 rounded-lg border transition ${
+                  selected.tokens === t.tokens
+                    ? "border-gold-300 bg-gold-300/5"
+                    : "border-ink-800 hover:border-ink-700"
+                } ${!affordable ? "opacity-40" : ""}`}
+              >
+                <span className="font-mono flex items-center gap-2">
+                  {t.tokens.toLocaleString()} $MNEME
+                  {!affordable && <span className="text-[10px] uppercase tracking-wider text-red-400/80">insufficient</span>}
+                </span>
+                <span className="text-gold-300">{t.label} / 30d</span>
+              </button>
+            );
+          })}
         </div>
+
+        {!hasGas && balances && (
+          <div className="text-xs text-red-400/90 bg-red-500/5 border border-red-500/30 rounded-lg p-3 mb-3">
+            <div className="font-semibold mb-1">⚠ Not enough ETH for gas</div>
+            <div className="text-ink-300">
+              You need ~0.0005 ETH on Base to send the burn tx. Send a small
+              amount of ETH to <code className="font-mono text-ink-100">{wallet?.address?.slice(0, 8)}…{wallet?.address?.slice(-6)}</code>{" "}
+              (Base network) and try again.
+            </div>
+          </div>
+        )}
 
         {stage === "idle" && (
           <button
             onClick={doBurn}
-            disabled={!wallet}
-            className="w-full py-3 rounded-lg bg-gold-300 hover:bg-gold-200 disabled:opacity-50 text-black font-semibold transition"
+            disabled={!wallet || !canAfford || !hasGas}
+            className="w-full py-3 rounded-lg bg-gold-300 hover:bg-gold-200 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold transition"
           >
-            Burn {selected.tokens.toLocaleString()} $MNEME
+            {!canAfford ? `Need ${selected.tokens.toLocaleString()} $MNEME` :
+             !hasGas    ? "Need ETH for gas"                                 :
+             `Burn ${selected.tokens.toLocaleString()} $MNEME`}
           </button>
         )}
         {stage === "signing"   && <Status text="Waiting for wallet signature…" />}
@@ -409,4 +490,22 @@ function fmt(bytes: number): string {
   if (bytes < 1024 * 1024)        return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function fmtToken(raw: bigint, decimals: number): string {
+  const whole = Number(formatUnits(raw, decimals));
+  if (whole === 0)         return "0";
+  if (whole < 0.01)        return whole.toFixed(4);
+  if (whole < 1)           return whole.toFixed(3);
+  if (whole < 1000)        return whole.toFixed(2);
+  if (whole < 1_000_000)   return `${(whole / 1000).toFixed(1)}k`;
+  return `${(whole / 1_000_000).toFixed(2)}M`;
+}
+
+function fmtEth(raw: bigint): string {
+  const v = Number(formatEther(raw));
+  if (v === 0)     return "0";
+  if (v < 0.0001)  return v.toExponential(2);
+  if (v < 1)       return v.toFixed(4);
+  return v.toFixed(3);
 }

@@ -5,11 +5,12 @@ import { Landing } from "./components/Landing";
 import { Onboarding } from "./components/Onboarding";
 import { ProjectHome } from "./components/ProjectHome";
 import { TablesView } from "./components/TablesView";
+import { StorageView } from "./components/StorageView";
 import { SettingsView } from "./components/SettingsView";
 import { useSession } from "./lib/session";
 import { useProjectMe } from "./lib/project";
 
-type View = "home" | "tables" | "settings";
+type View = "home" | "tables" | "storage" | "settings";
 
 export function App() {
   const { ready, authenticated } = usePrivy();
@@ -76,11 +77,13 @@ export function App() {
         <nav className="w-48 border-r border-ink-900 p-3 flex flex-col gap-1">
           <NavItem active={view === "home"}     onClick={() => setView("home")}     label="Home" />
           <NavItem active={view === "tables"}   onClick={() => setView("tables")}   label="Tables" />
+          <NavItem active={view === "storage"}  onClick={() => setView("storage")}  label="Storage" />
           <NavItem active={view === "settings"} onClick={() => setView("settings")} label="Settings" />
         </nav>
         <main className="flex-1 overflow-auto">
           {view === "home"     && <ProjectHome project={project} />}
           {view === "tables"   && <TablesView />}
+          {view === "storage"  && <StorageView />}
           {view === "settings" && <SettingsView project={project} />}
         </main>
       </div>

@@ -26,6 +26,7 @@ export function Landing() {
           <span className="hidden lg:inline-flex"><StatusBadge /></span>
           <a href="#code"          className="hidden md:inline text-ink-400 hover:text-white transition">Code</a>
           <a href="#compare"       className="hidden md:inline text-ink-400 hover:text-white transition">Why Mneme</a>
+          <a href="#storage"       className="hidden lg:inline text-ink-400 hover:text-white transition">Storage</a>
           <a href="#faq"           className="hidden md:inline text-ink-400 hover:text-white transition">FAQ</a>
           <a
             href="https://github.com/mnemedb/mnemedb"
@@ -64,9 +65,10 @@ export function Landing() {
               <span className="text-gold-300">Built in gold.</span>
             </h1>
             <p className="text-lg text-ink-300 leading-relaxed max-w-md">
-              Real Postgres. Per-project schemas. Vector search built-in. Your
-              agents create the tables they need at runtime. Authenticated by
-              their wallet — no API keys to leak.
+              Real Postgres. Per-project schemas. Vector search built-in.
+              Wallet-bound storage on a global CDN. Your agents create
+              tables and upload files at runtime — authenticated by their
+              wallet, no API keys to leak.
             </p>
             <div className="pt-2">
               <button
@@ -128,13 +130,22 @@ await m.from("tweets").insert({
 // 3. Vector-search across any column on any table
 const { matches } = await m.vectorSearch({
   table: "tweets", column: "embedding", embedding: query, k: 5,
-});`}
+});
+
+// 4. Wallet-bound storage — public files served on cdn.mnemedb.dev
+const { public_url } = await m.storage.upload({
+  key:        "avatars/alice.png",
+  file:       avatarBytes,
+  visibility: "public",
+  contentType: "image/png",
+});
+// → https://cdn.mnemedb.dev/<your-handle>/public/avatars/alice.png`}
           </CodeBlock>
 
           <div className="mt-4 text-xs text-ink-500">
             Same surface from Claude/Cursor via MCP:{" "}
             <code className="font-mono text-gold-300/80">npm i -g mneme-mcp</code>
-            {" "}— five tools, zero glue code.
+            {" "}— eleven tools, zero glue code.
           </div>
         </div>
       </section>
@@ -192,8 +203,10 @@ const { matches } = await m.vectorSearch({
                 <Row label="Auth"                       mneme="email / google / X / wallet" others="API key"            raw="email + JWT or API key"          />
                 <Row label="MCP server for Claude/Cursor" mneme="✓ npm i -g mneme-mcp" others="growing"                 raw="✗ build it yourself"             />
                 <Row label="Per-tenant schema isolation" mneme="✓ automatic"          others="per-API-key"             raw="manual RLS setup"                />
+                <Row label="Wallet-bound file storage"  mneme="✓ R2 + cdn.mnemedb.dev" others="✗"                       raw="separate S3 + IAM setup"         />
+                <Row label="Pay with token burn"        mneme="✓ $MNEME → quota"      others="✗ credit card only"      raw="✗ credit card only"              />
                 <Row label="Onchain identity (Phase 2)" mneme="✓ via wallet"          others="✗"                        raw="✗"                              />
-                <Row label="Infra to manage"            mneme="zero"                  others="zero"                    raw="postgres + auth + RLS + DDL"     />
+                <Row label="Infra to manage"            mneme="zero"                  others="zero"                    raw="postgres + auth + RLS + DDL + S3" />
               </tbody>
             </table>
           </div>
@@ -255,6 +268,37 @@ const { matches } = await m.vectorSearch({
         </div>
       </section>
 
+      {/* ════ Storage spotlight ═════════════════════════════════════════════ */}
+      <section id="storage" className="py-24 border-t border-ink-900">
+        <div className="max-w-6xl mx-auto px-6 md:px-10">
+          <div className="text-xs uppercase tracking-[0.3em] text-gold-300/80 mb-3">
+            wallet-bound storage
+          </div>
+          <h2 className="text-3xl md:text-4xl font-semibold mb-6 max-w-2xl tracking-tight">
+            Files, in the same schema as your data.
+          </h2>
+          <p className="text-ink-400 max-w-2xl mb-10 leading-relaxed">
+            Every wallet gets <strong className="text-gold-300">100 MB free</strong> of
+            object storage backed by Cloudflare R2. Public files serve from{" "}
+            <code className="font-mono text-gold-300/80">cdn.mnemedb.dev</code>{" "}
+            on Cloudflare's global anycast — zero egress fees. Private files use
+            presigned URLs. Quota extends by burning <span className="text-gold-300">$MNEME</span>:
+          </p>
+
+          <div className="grid sm:grid-cols-3 gap-3">
+            <BurnTier tokens="100"    label="1 GB"   days="30" />
+            <BurnTier tokens="1,000"  label="10 GB"  days="30" />
+            <BurnTier tokens="10,000" label="100 GB" days="30" />
+          </div>
+
+          <p className="text-xs text-ink-500 mt-6 leading-relaxed max-w-2xl">
+            Every burn permanently retires $MNEME from circulation. Real demand
+            from real builders → real deflation. Burns are verified on-chain
+            against the Base mainnet receipt — no off-chain trust required.
+          </p>
+        </div>
+      </section>
+
       {/* ════ Pricing ═══════════════════════════════════════════════════════ */}
       <section className="py-24 border-t border-ink-900">
         <div className="max-w-3xl mx-auto px-6 md:px-10">
@@ -262,14 +306,14 @@ const { matches } = await m.vectorSearch({
             pricing
           </div>
           <h2 className="text-3xl md:text-4xl font-semibold mb-6 tracking-tight">
-            Free during MVP. Then <span className="text-gold-300">$MNEME</span>.
+            Free to start. Then <span className="text-gold-300">$MNEME</span>.
           </h2>
           <p className="text-ink-400 leading-relaxed">
-            All endpoints are free during the MVP — create projects, insert,
-            query, vector-search to your heart's content. When the public
-            launch ships, $MNEME (Clanker / Flaunch on Base) introduces
-            pay-per-query metering and a stake-for-rate-limit-discount mechanic.
-            Free tier remains generous for hobby agents.
+            Postgres, vector search, MCP, and the SDK are free during the MVP.
+            Storage ships with a 100 MB free tier and a $MNEME burn mechanic
+            for additional capacity (live today). Phase 2 introduces gateway
+            query metering: hold $MNEME for higher API tiers, stake for
+            reserved compute.
           </p>
         </div>
       </section>
@@ -321,6 +365,16 @@ const { matches } = await m.vectorSearch({
               2 ships <em>agent keys</em> — link many agent wallets to one owner
               project so a single human's project can be written to by many
               cooperating agents.
+            </Faq>
+            <Faq q="How does storage actually work?">
+              Every wallet gets 100 MB free on Cloudflare R2. Files are keyed
+              under <code className="font-mono text-gold-300/80">{`<handle>/<public|private>/<key>`}</code>;
+              public files are served on <code className="font-mono text-gold-300/80">cdn.mnemedb.dev</code>{" "}
+              with zero egress fees (Cloudflare anycast). Private files use
+              presigned URLs that expire in 15 minutes by default. To extend,
+              burn $MNEME on Base — 100 = 1 GB, 1k = 10 GB, 10k = 100 GB, each
+              for 30 days. Every burn is verified on-chain against the Base
+              receipt; nothing off-chain.
             </Faq>
           </div>
         </div>
@@ -437,6 +491,18 @@ function TableCard({ name, desc, defaultsLabel }: { name: string; desc: string; 
         </span>
       </div>
       <p className="text-ink-400 text-sm leading-relaxed">{desc}</p>
+    </div>
+  );
+}
+
+function BurnTier({ tokens, label, days }: { tokens: string; label: string; days: string }) {
+  return (
+    <div className="bg-ink-900 border border-ink-800 rounded-xl p-5 text-center hover:border-gold-300/40 transition">
+      <div className="font-mono text-2xl text-gold-300 mb-1">{label}</div>
+      <div className="text-xs text-ink-500 uppercase tracking-wider mb-3">{days} days</div>
+      <div className="font-mono text-sm text-ink-300">
+        burn <span className="text-gold-300">{tokens}</span> $MNEME
+      </div>
     </div>
   );
 }

@@ -20,6 +20,13 @@ export function ProjectHome({ project }: Props) {
   const counts = stats?.tables ?? {};
   const totals = stats?.totals;
 
+  const { data: quota } = useQuery({
+    queryKey:        ["storage", "quota"],
+    enabled:         !!mneme,
+    refetchInterval: 15_000,
+    queryFn:         () => mneme!.storage.quota(),
+  });
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="mb-8">
@@ -46,6 +53,30 @@ export function ProjectHome({ project }: Props) {
         </div>
       )}
 
+      {/* ─── Storage strip ─────────────────────────────────────────── */}
+      {quota && (
+        <div className="bg-ink-900 border border-ink-800 rounded-xl p-5 mb-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <div>
+              <div className="text-ink-500 text-xs uppercase tracking-wider">storage</div>
+              <div className="font-mono text-xl mt-1">
+                {fmtBytes(quota.bytes_used)} <span className="text-ink-500 text-sm">/ {fmtBytes(quota.bytes_limit)}</span>
+              </div>
+            </div>
+            <div className="text-xs text-ink-500 max-w-xs text-right">
+              Files served from <code className="font-mono text-gold-300/80">cdn.mnemedb.dev</code>.
+              Burn <span className="text-gold-300">$MNEME</span> to extend.
+            </div>
+          </div>
+          <div className="h-1.5 bg-ink-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-gold-300 to-gold-500 transition-all"
+              style={{ width: `${Math.min(100, Math.round((quota.bytes_used / Math.max(1, quota.bytes_limit)) * 100))}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <McpSetupCard />
     </div>
   );
@@ -60,4 +91,11 @@ function StatCard({ label, value }: { label: string; value: number }) {
       </div>
     </div>
   );
+}
+
+function fmtBytes(bytes: number): string {
+  if (bytes < 1024)               return `${bytes} B`;
+  if (bytes < 1024 * 1024)        return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }

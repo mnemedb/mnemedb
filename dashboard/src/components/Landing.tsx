@@ -286,9 +286,9 @@ const { public_url } = await m.storage.upload({
           </p>
 
           <div className="grid sm:grid-cols-3 gap-3">
-            <BurnTier tokens="100"    label="1 GB"   days="30" />
-            <BurnTier tokens="1,000"  label="10 GB"  days="30" />
-            <BurnTier tokens="10,000" label="100 GB" days="30" />
+            <BurnTier tokens="100,000"    label="1 GB"   days="30" />
+            <BurnTier tokens="1,000,000"  label="10 GB"  days="30" />
+            <BurnTier tokens="10,000,000" label="100 GB" days="30" />
           </div>
 
           <p className="text-xs text-ink-500 mt-6 leading-relaxed max-w-2xl">
@@ -372,9 +372,9 @@ const { public_url } = await m.storage.upload({
               public files are served on <code className="font-mono text-gold-300/80">cdn.mnemedb.dev</code>{" "}
               with zero egress fees (Cloudflare anycast). Private files use
               presigned URLs that expire in 15 minutes by default. To extend,
-              burn $MNEME on Base — 100 = 1 GB, 1k = 10 GB, 10k = 100 GB, each
-              for 30 days. Every burn is verified on-chain against the Base
-              receipt; nothing off-chain.
+              burn $MNEME on Base — 100k = 1 GB, 1M = 10 GB, 10M = 100 GB,
+              each for 30 days. Every burn is verified on-chain against the
+              Base receipt; nothing off-chain.
             </Faq>
           </div>
         </div>

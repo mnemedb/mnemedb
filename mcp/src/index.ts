@@ -212,7 +212,7 @@ server.registerTool(
   {
     title: "Credit a $MNEME burn transaction to extend storage quota",
     description:
-      "Submit a Base mainnet transaction hash that burned $MNEME (sent to 0xdEaD address). The gateway verifies the burn on-chain and credits storage bonus capacity. Tiers: 100 $MNEME = 1 GB / 30d, 1000 = 10 GB / 30d, 10000 = 100 GB / 30d. Each tx hash can only be credited once.",
+      "Submit a Base mainnet transaction hash that burned $MNEME (sent to 0xdEaD address). The gateway verifies the burn on-chain and credits storage bonus capacity. Tiers: 100,000 $MNEME = 1 GB / 30d, 1,000,000 = 10 GB / 30d, 10,000,000 = 100 GB / 30d. Each tx hash can only be credited once.",
     inputSchema: {
       tx_hash: z.string(),
     },

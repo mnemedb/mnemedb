@@ -10,9 +10,9 @@ const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
 interface BurnTier { tokens: number; gb: number; label: string }
 const BURN_TIERS: BurnTier[] = [
-  { tokens: 100,    gb: 1,   label: "1 GB" },
-  { tokens: 1_000,  gb: 10,  label: "10 GB" },
-  { tokens: 10_000, gb: 100, label: "100 GB" },
+  { tokens:    100_000, gb: 1,   label: "1 GB" },
+  { tokens:  1_000_000, gb: 10,  label: "10 GB" },
+  { tokens: 10_000_000, gb: 100, label: "100 GB" },
 ];
 
 const ERC20_TRANSFER_ABI = [{

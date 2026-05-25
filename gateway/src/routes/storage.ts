@@ -26,10 +26,14 @@ const MNEME_DECIMALS   = 18;
 
 // Burn tiers: amount_raw threshold (in token units, NOT raw) → bytes + days
 // Pick the LARGEST tier the burn qualifies for.
+//
+// Sized for a 100B-supply token: 100k / 1M / 10M $MNEME = 0.0001 / 0.001 / 0.01%
+// of total supply per burn. Free tier (100 MB) covers casual use; burns are
+// reserved for projects that actually need persistent storage.
 const BURN_TIERS: Array<{ minTokens: number; bytes: number; days: number; label: string }> = [
-  { minTokens: 10_000, bytes: 100 * 1024 * 1024 * 1024, days: 30, label: "100 GB / 30d" },
-  { minTokens: 1_000,  bytes:  10 * 1024 * 1024 * 1024, days: 30, label: "10 GB / 30d" },
-  { minTokens: 100,    bytes:       1 * 1024 * 1024 * 1024, days: 30, label: "1 GB / 30d" },
+  { minTokens: 10_000_000, bytes: 100 * 1024 * 1024 * 1024, days: 30, label: "100 GB / 30d" },
+  { minTokens:  1_000_000, bytes:  10 * 1024 * 1024 * 1024, days: 30, label: "10 GB / 30d" },
+  { minTokens:    100_000, bytes:       1 * 1024 * 1024 * 1024, days: 30, label: "1 GB / 30d" },
 ];
 
 function tierFor(amountTokens: number): typeof BURN_TIERS[number] | null {

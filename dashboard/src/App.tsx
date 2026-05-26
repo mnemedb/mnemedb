@@ -6,13 +6,20 @@ import { Onboarding } from "./components/Onboarding";
 import { ProjectHome } from "./components/ProjectHome";
 import { TablesView } from "./components/TablesView";
 import { StorageView } from "./components/StorageView";
+import { SqlEditor } from "./components/SqlEditor";
+import { Docs } from "./components/Docs";
 import { SettingsView } from "./components/SettingsView";
 import { useSession } from "./lib/session";
 import { useProjectMe } from "./lib/project";
 
-type View = "home" | "tables" | "storage" | "settings";
+type View = "home" | "tables" | "sql" | "storage" | "settings";
 
 export function App() {
+  // Docs route — public, no auth needed
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/docs")) {
+    return <Docs />;
+  }
+
   const { ready, authenticated } = usePrivy();
   const { session, sign, busy: sessionBusy, error: sessionError, address } = useSession();
   const { data: project, isLoading: projLoading, refetch: refetchProject } = useProjectMe();
@@ -77,12 +84,20 @@ export function App() {
         <nav className="w-48 border-r border-ink-900 p-3 flex flex-col gap-1">
           <NavItem active={view === "home"}     onClick={() => setView("home")}     label="Home" />
           <NavItem active={view === "tables"}   onClick={() => setView("tables")}   label="Tables" />
+          <NavItem active={view === "sql"}      onClick={() => setView("sql")}      label="SQL" />
           <NavItem active={view === "storage"}  onClick={() => setView("storage")}  label="Storage" />
           <NavItem active={view === "settings"} onClick={() => setView("settings")} label="Settings" />
+          <a
+            href="/docs"
+            className="mt-2 text-left px-3 py-2 rounded-lg text-sm text-ink-500 hover:bg-ink-900 hover:text-white transition"
+          >
+            Docs ↗
+          </a>
         </nav>
         <main className="flex-1 overflow-auto">
           {view === "home"     && <ProjectHome project={project} />}
           {view === "tables"   && <TablesView />}
+          {view === "sql"      && <SqlEditor />}
           {view === "storage"  && <StorageView />}
           {view === "settings" && <SettingsView project={project} />}
         </main>

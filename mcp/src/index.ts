@@ -152,6 +152,23 @@ server.registerTool(
   },
 );
 
+// ─── Raw SQL (power-user escape hatch) ────────────────────────────────────
+server.registerTool(
+  "mneme_sql",
+  {
+    title: "Run raw SQL against your project schema",
+    description:
+      "Execute arbitrary SQL (SELECT / INSERT / UPDATE / DELETE / DDL) against your project's Postgres schema. Single statement only. Server enforces: 5s statement timeout, search_path pinned to your schema (so unqualified table refs resolve to YOUR schema only), cross-tenant references blocked, 1000-row result cap. Use this when the typed CRUD tools (mneme_insert/list/update/delete) aren't expressive enough — JOINs, aggregates, GROUP BY, complex WHERE, CTEs, etc.",
+    inputSchema: {
+      query: z.string(),
+    },
+  },
+  async ({ query }) => {
+    const r = await mneme.sql(query);
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
 // ─── Vector ────────────────────────────────────────────────────────────────
 server.registerTool(
   "mneme_vector_search",

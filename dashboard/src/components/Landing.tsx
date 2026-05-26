@@ -27,7 +27,8 @@ export function Landing() {
           <a href="#code"          className="hidden md:inline text-ink-400 hover:text-white transition">Code</a>
           <a href="#compare"       className="hidden md:inline text-ink-400 hover:text-white transition">Why Mneme</a>
           <a href="#storage"       className="hidden lg:inline text-ink-400 hover:text-white transition">Storage</a>
-          <a href="#faq"           className="hidden md:inline text-ink-400 hover:text-white transition">FAQ</a>
+          <a href="/docs"          className="hidden md:inline text-ink-400 hover:text-white transition">Docs</a>
+          <a href="#faq"           className="hidden lg:inline text-ink-400 hover:text-white transition">FAQ</a>
           <a
             href="https://github.com/mnemedb/mnemedb"
             target="_blank" rel="noreferrer"

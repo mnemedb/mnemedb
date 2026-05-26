@@ -113,6 +113,32 @@ export class Mneme {
     return new Collection<T>(this, table);
   }
 
+  /**
+   * Run raw SQL against your project's Postgres schema.
+   *
+   * Safety guards (server-side):
+   *   - 5-second statement timeout
+   *   - search_path pinned to your schema (unqualified table refs resolve to YOUR schema)
+   *   - cross-tenant schema references are blocked
+   *   - 1000-row result cap
+   *   - single statement only
+   *
+   * Returns rows, column metadata, and elapsed time.
+   *
+   * @example
+   * await m.sql("SELECT count(*) FROM memories");
+   * await m.sql("CREATE INDEX ON books (rating)");
+   */
+  sql<T = Record<string, unknown>>(query: string) {
+    return this.request<{
+      rows:       T[];
+      row_count:  number;
+      columns:    string[];
+      truncated:  boolean;
+      elapsed_ms: number;
+    }>("POST", "/v1/sql", { query });
+  }
+
   // ─── Storage (Cloudflare R2 backend, $MNEME burn quota) ──────────────────
   readonly storage = {
     upload: async (args: {

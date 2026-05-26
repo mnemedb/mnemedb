@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin.json",
   "name": "mneme",
   "displayName": "Mneme",
-  "version": "0.2.0",
-  "description": "Wallet-bound Postgres + storage on Base, exposed as 11 agent tools.",
+  "version": "0.3.0",
+  "description": "Wallet-bound Postgres + storage on Base, exposed as 15 agent tools (CRUD, WHERE filters, raw SQL, vector search, file storage, burn).",
   "author": {
     "name": "mneme",
     "url":  "https://mnemedb.dev"

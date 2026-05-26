@@ -1,7 +1,7 @@
 {
   "name": "mneme-mcp",
-  "version": "0.2.0",
-  "description": "MCP server + OpenClaude plugin for Mneme — Postgres + R2 storage + vector search on Base, as 14 agent tools.",
+  "version": "0.3.0",
+  "description": "MCP server + OpenClaude plugin for Mneme — Postgres + R2 storage + vector search + raw SQL on Base, as 15 agent tools.",
   "type": "module",
   "bin": {
     "mneme-mcp": "./dist/index.js"
@@ -42,7 +42,7 @@
   "author": "mnemedb",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "mneme-sdk":                 "^0.2.0",
+    "mneme-sdk":                 "^0.3.0",
     "viem":                      "^2.21.0",
     "zod":                       "^3.23.0"
   },

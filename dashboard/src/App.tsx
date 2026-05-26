@@ -71,14 +71,36 @@ export function App() {
   // ─── 7. Full app shell ─────────────────────────────────────────────────────
   return (
     <div className="h-full flex flex-col bg-ink-950 text-white font-sans antialiased">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-ink-900">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-ink-900 bg-gradient-to-b from-ink-950 to-transparent">
+        <div className="flex items-center gap-3 min-w-0">
           <Logo />
           <span className="font-semibold tracking-tight">Mneme</span>
-          <span className="text-ink-500 text-sm">·</span>
-          <span className="font-mono text-sm text-ink-300">{project.handle}.mneme</span>
+          <span className="text-ink-700 text-sm hidden sm:inline">/</span>
+          <span className="font-mono text-sm text-ink-300 truncate hidden sm:inline">
+            {project.handle}
+            <span className="text-ink-600">.mneme</span>
+          </span>
+          <span className="hidden md:flex items-center gap-1.5 ml-3 pl-3 border-l border-ink-800">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]"></span>
+            <span className="text-[11px] text-ink-400">Base</span>
+          </span>
         </div>
-        <ConnectButton />
+        <div className="flex items-center gap-3">
+          <a
+            href="/docs"
+            className="hidden md:inline text-xs text-ink-400 hover:text-white px-2 py-1 transition"
+          >
+            Docs ↗
+          </a>
+          <a
+            href="https://github.com/mnemedb/mnemedb"
+            target="_blank" rel="noreferrer"
+            className="hidden md:inline text-xs text-ink-400 hover:text-white px-2 py-1 transition"
+          >
+            GitHub ↗
+          </a>
+          <ConnectButton />
+        </div>
       </header>
 
       <div className="flex flex-1 min-h-0">

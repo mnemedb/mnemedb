@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLogin } from "@privy-io/react-auth";
 import { StatusBadge } from "./StatusBadge";
 
@@ -11,24 +12,27 @@ export function Landing() {
 
   return (
     <div className="min-h-screen bg-ink-950 text-white font-sans antialiased selection:bg-gold-400/30 selection:text-white">
+      {/* ════ Top announcement banner ════════════════════════════════════════ */}
+      <AnnouncementBar />
+
       {/* ════ Nav ═══════════════════════════════════════════════════════════ */}
-      <nav className="flex items-center justify-between px-6 md:px-10 py-5 max-w-7xl mx-auto">
-        <a href="#top" className="flex items-center gap-2.5">
+      <nav className="flex items-center justify-between px-6 md:px-10 py-4 max-w-7xl mx-auto">
+        <a href="#top" className="flex items-center gap-2.5 group">
           <img
             src="/mnemelogo.png"
             alt="Mneme"
-            className="h-7 w-auto object-contain"
+            className="h-8 w-auto object-contain transition-transform group-hover:scale-105"
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
           />
           <span className="font-semibold tracking-tight text-lg">Mneme</span>
+          <span className="hidden md:inline text-[10px] uppercase tracking-[0.2em] text-gold-300/60 ml-2 pl-2 border-l border-ink-800">on Base</span>
         </a>
         <div className="flex items-center gap-5 text-sm">
           <span className="hidden lg:inline-flex"><StatusBadge /></span>
+          <a href="#features"      className="hidden md:inline text-ink-400 hover:text-white transition">Stack</a>
           <a href="#code"          className="hidden md:inline text-ink-400 hover:text-white transition">Code</a>
-          <a href="#compare"       className="hidden md:inline text-ink-400 hover:text-white transition">Why Mneme</a>
-          <a href="#storage"       className="hidden lg:inline text-ink-400 hover:text-white transition">Storage</a>
+          <a href="#compare"       className="hidden lg:inline text-ink-400 hover:text-white transition">Compare</a>
           <a href="/docs"          className="hidden md:inline text-ink-400 hover:text-white transition">Docs</a>
-          <a href="#faq"           className="hidden lg:inline text-ink-400 hover:text-white transition">FAQ</a>
           <a
             href="https://github.com/mnemedb/mnemedb"
             target="_blank" rel="noreferrer"
@@ -38,7 +42,7 @@ export function Landing() {
           </a>
           <button
             onClick={signIn}
-            className="text-ink-300 hover:text-white text-sm transition"
+            className="px-4 py-1.5 rounded-lg bg-white text-black hover:bg-marble-100 transition text-sm font-medium"
           >
             Sign in
           </button>
@@ -86,67 +90,18 @@ export function Landing() {
             </div>
           </div>
         </div>
-      </section>
 
-      {/* ════ Live code ═════════════════════════════════════════════════════ */}
-      <section id="code" className="py-24 border-t border-ink-900">
-        <div className="max-w-6xl mx-auto px-6 md:px-10">
-          <div className="text-xs uppercase tracking-[0.3em] text-gold-300/80 mb-3">
-            three calls
-          </div>
-          <h2 className="text-3xl md:text-4xl font-semibold mb-4 tracking-tight">
-            Create a table. Insert a row. Vector-search it.
-          </h2>
-          <p className="text-ink-400 max-w-2xl mb-10 leading-relaxed">
-            No DB credentials, no migrations folder, no infra. Your agent's
-            wallet is the credential; the schema is provisioned on demand.
-          </p>
-
-          <CodeBlock title="agent.ts">
-{`// npm i mneme-sdk viem
-import { privateKeyToAccount } from "viem/accounts";
-import { Mneme } from "mneme-sdk";
-
-const m = new Mneme({
-  account:    privateKeyToAccount(process.env.AGENT_PRIVATE_KEY!),
-  gatewayUrl: "https://gateway.mnemedb.dev",
-});
-
-// 1. Spin up whatever table your agent needs
-await m.createTable({
-  name: "tweets",
-  columns: [
-    { name: "author",    type: "text", nullable: false },
-    { name: "content",   type: "text" },
-    { name: "likes",     type: "int"  },
-    { name: "embedding", type: "vector", dim: 1536 },
-  ],
-});
-
-// 2. Write into it
-await m.from("tweets").insert({
-  author: "alice", content: "gm", likes: 42, embedding: vec,
-});
-
-// 3. Vector-search across any column on any table
-const { matches } = await m.vectorSearch({
-  table: "tweets", column: "embedding", embedding: query, k: 5,
-});
-
-// 4. Wallet-bound storage — public files served on cdn.mnemedb.dev
-const { public_url } = await m.storage.upload({
-  key:        "avatars/alice.png",
-  file:       avatarBytes,
-  visibility: "public",
-  contentType: "image/png",
-});
-// → https://cdn.mnemedb.dev/<your-handle>/public/avatars/alice.png`}
-          </CodeBlock>
-
-          <div className="mt-4 text-xs text-ink-500">
-            Same surface from Claude/Cursor via MCP:{" "}
-            <code className="font-mono text-gold-300/80">npm i -g mneme-mcp</code>
-            {" "}— eleven tools, zero glue code.
+        {/* ─── Trust strip ───────────────────────────────────────────── */}
+        <div className="relative max-w-7xl mx-auto px-6 md:px-10 pb-12">
+          <div className="border-t border-ink-900 pt-6 flex flex-wrap items-center gap-x-8 gap-y-3 justify-between text-xs text-ink-500">
+            <span className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
+              <span>Live on <span className="text-ink-300">Base mainnet</span></span>
+            </span>
+            <span><span className="text-gold-300/80 font-mono">$MNEME</span> live · <span className="font-mono text-ink-300">0x3FcD…7b07</span></span>
+            <span>15 MCP tools · <span className="text-ink-300">npm i mneme-sdk</span></span>
+            <span>100 MB free storage · <span className="text-ink-300">cdn.mnemedb.dev</span></span>
+            <span>4-second wallet onboarding</span>
           </div>
         </div>
       </section>
@@ -316,6 +271,69 @@ const { public_url } = await m.storage.upload({
           <p className="text-center text-xs text-ink-500 mt-12">
             Use one or all. Best of breed primitives. Integrated as a platform.
           </p>
+        </div>
+      </section>
+
+      {/* ════ Live code ═════════════════════════════════════════════════════ */}
+      <section id="code" className="py-24 border-t border-ink-900">
+        <div className="max-w-6xl mx-auto px-6 md:px-10">
+          <div className="text-xs uppercase tracking-[0.3em] text-gold-300/80 mb-3">
+            three calls
+          </div>
+          <h2 className="text-3xl md:text-4xl font-semibold mb-4 tracking-tight">
+            Create a table. Insert a row. Vector-search it.
+          </h2>
+          <p className="text-ink-400 max-w-2xl mb-10 leading-relaxed">
+            No DB credentials, no migrations folder, no infra. Your agent's
+            wallet is the credential; the schema is provisioned on demand.
+          </p>
+
+          <CodeBlock title="agent.ts">
+{`// npm i mneme-sdk viem
+import { privateKeyToAccount } from "viem/accounts";
+import { Mneme } from "mneme-sdk";
+
+const m = new Mneme({
+  account:    privateKeyToAccount(process.env.AGENT_PRIVATE_KEY!),
+  gatewayUrl: "https://gateway.mnemedb.dev",
+});
+
+// 1. Spin up whatever table your agent needs
+await m.createTable({
+  name: "tweets",
+  columns: [
+    { name: "author",    type: "text", nullable: false },
+    { name: "content",   type: "text" },
+    { name: "likes",     type: "int"  },
+    { name: "embedding", type: "vector", dim: 1536 },
+  ],
+});
+
+// 2. Write into it
+await m.from("tweets").insert({
+  author: "alice", content: "gm", likes: 42, embedding: vec,
+});
+
+// 3. Vector-search across any column on any table
+const { matches } = await m.vectorSearch({
+  table: "tweets", column: "embedding", embedding: query, k: 5,
+});
+
+// 4. Wallet-bound storage — public files served on cdn.mnemedb.dev
+const { public_url } = await m.storage.upload({
+  key:        "avatars/alice.png",
+  file:       avatarBytes,
+  visibility: "public",
+  contentType: "image/png",
+});
+// → https://cdn.mnemedb.dev/<your-handle>/public/avatars/alice.png`}
+          </CodeBlock>
+
+          <div className="mt-4 text-xs text-ink-500">
+            Same surface from Claude/Cursor via MCP:{" "}
+            <code className="font-mono text-gold-300/80">npm i -g mneme-mcp</code>
+            {" "}— fifteen tools, zero glue code.
+          </div>
         </div>
       </section>
 
@@ -606,6 +624,87 @@ function UseCase({ title, desc }: { title: string; desc: string }) {
       <h3 className="text-lg font-semibold mb-2">{title}</h3>
       <p className="text-ink-400 text-sm leading-relaxed">{desc}</p>
     </div>
+  );
+}
+
+/* ─── Top announcement banner — slim, dismissible ──────────────────────── */
+const MNEME_CA = "0x3FcDbEBD5e7BaB79477cFDcA2CDCF6e904C27b07";
+
+function AnnouncementBar() {
+  const KEY = "mneme.banner.dismissed.v1";
+  const [dismissed, setDismissed] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem(KEY) === "1"
+  );
+  const [copied, setCopied] = useState(false);
+  if (dismissed) return null;
+
+  const copyCa = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(MNEME_CA).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  return (
+    <div className="relative bg-gradient-to-r from-gold-300/10 via-gold-300/15 to-gold-300/10 border-b border-gold-300/20">
+      <div className="max-w-7xl mx-auto px-6 md:px-10 py-2 flex items-center justify-between text-xs gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className="text-gold-300 shrink-0">✦</span>
+          <span className="text-ink-200 truncate">
+            <span className="font-semibold">Storage just shipped.</span>{" "}
+            <span className="text-ink-400 hidden sm:inline">100 MB free · burn $MNEME for more</span>
+          </span>
+          <a href="/docs#storage-overview" className="hidden lg:inline text-gold-300 hover:text-gold-200 underline underline-offset-2 shrink-0">
+            Read more →
+          </a>
+
+          {/* CA chip — clickable to clanker.world, copy icon next to it */}
+          <span className="hidden md:inline-flex items-center gap-1 bg-ink-950/70 border border-ink-800 rounded-full pl-2 pr-1 py-0.5 ml-auto shrink-0">
+            <a
+              href={`https://clanker.world/clanker/${MNEME_CA}`}
+              target="_blank" rel="noreferrer"
+              className="text-gold-300 hover:text-gold-200 font-mono text-[10.5px] tracking-tight transition"
+              title="View on clanker.world"
+            >
+              $MNEME · 0x3FcD…7b07
+            </a>
+            <button
+              onClick={copyCa}
+              className="p-0.5 rounded hover:bg-ink-800 transition text-ink-400 hover:text-gold-300"
+              aria-label="Copy CA"
+              title={copied ? "Copied!" : "Copy contract address"}
+            >
+              {copied ? <CheckIcon /> : <CopyIcon />}
+            </button>
+          </span>
+        </div>
+        <button
+          onClick={() => { localStorage.setItem(KEY, "1"); setDismissed(true); }}
+          className="text-ink-500 hover:text-white px-2 shrink-0"
+          aria-label="Dismiss banner"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  );
+}
+function CheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
   );
 }
 

@@ -6,7 +6,7 @@ import {
   type Hex,
 } from "viem";
 import { publicClient } from "./chain";
-import { getProjectForWallet, type Project } from "./db";
+import { getProjectForWallet, lookupApiKey, bumpKeyLastUsed, type Project } from "./db";
 import { verifySessionJwt } from "./jwt";
 
 const DOMAIN_NAME    = process.env.MNEME_DOMAIN_NAME    ?? "Mneme";
@@ -31,6 +31,12 @@ declare module "hono" {
     wallet:   Address;
     project:  Project;
     bodyText: string;
+    /** When the request is API-key authed, the scope (table-name prefix the key may touch). */
+    apiKeyScope?: string;
+    /** When the request is API-key authed, the key id (for rate-limit tracking). */
+    apiKeyId?:    number;
+    /** When the request is API-key authed, the key's rpm limit. */
+    apiKeyRpm?:   number;
   }
 }
 
@@ -38,6 +44,9 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authHeader = c.req.header("Authorization") ?? "";
   let wallet: Address;
   let bodyText: string;
+  let apiKeyScope: string | undefined;
+  let apiKeyId:    number | undefined;
+  let apiKeyRpm:   number | undefined;
 
   if (authHeader.startsWith("Bearer ")) {
     // Session JWT path — used by dashboards / apps with a stable session.
@@ -52,8 +61,25 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     if (!sigResult.ok) return c.json({ error: sigResult.error }, sigResult.status);
     wallet   = sigResult.wallet;
     bodyText = sigResult.bodyText;
+  } else if (authHeader.startsWith("ApiKey ")) {
+    // Service-account API key path — used by integrators (e.g. Gitlawb)
+    // distributing keys to apps. No wallet, no signature; the key is the
+    // bearer credential. Scope on the key constrains which sub-namespace
+    // (table-name prefix) it may touch within the owner's schema.
+    const rawKey = authHeader.slice(7).trim();
+    if (!rawKey.startsWith("mneme_sk_")) {
+      return c.json({ error: "invalid api key format" }, 401);
+    }
+    const record = await lookupApiKey(rawKey);
+    if (!record) return c.json({ error: "invalid or revoked api key" }, 401);
+    wallet      = record.owner_wallet as Address;
+    apiKeyScope = record.scope;
+    apiKeyId    = record.id;
+    apiKeyRpm   = record.rpm_limit;
+    bodyText    = await c.req.raw.clone().text();
+    bumpKeyLastUsed(record.id);
   } else {
-    return c.json({ error: "missing auth (Bearer session or Mneme sig required)" }, 401);
+    return c.json({ error: "missing auth (Bearer session, Mneme sig, or ApiKey required)" }, 401);
   }
 
   const project = await getProjectForWallet(wallet);
@@ -67,8 +93,24 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   c.set("wallet", wallet);
   c.set("project", project);
   c.set("bodyText", bodyText);
+  if (apiKeyScope !== undefined) c.set("apiKeyScope", apiKeyScope);
+  if (apiKeyId    !== undefined) c.set("apiKeyId",    apiKeyId);
+  if (apiKeyRpm   !== undefined) c.set("apiKeyRpm",   apiKeyRpm);
   await next();
 };
+
+/**
+ * Enforce scope on a table name when the request is API-key authed.
+ * Returns null if allowed; an error object if blocked.
+ */
+export function enforceApiKeyScope(scope: string | undefined, table: string): { error: string } | null {
+  if (!scope) return null;             // wallet/session auth — no scope restriction
+  if (table === scope) return null;     // exact match (e.g. scope = "memories", table = "memories")
+  if (table.startsWith(scope + "_")) return null;
+  return {
+    error: `api key scoped to "${scope}_*" cannot access table "${table}"`,
+  };
+}
 
 type SigVerifyResult =
   | { ok: true;  wallet: Address; bodyText: string }

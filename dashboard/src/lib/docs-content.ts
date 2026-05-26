@@ -672,6 +672,118 @@ The alternative — one Mneme handle per Playground user — works too, but Mnem
 `,
   },
 
+  {
+    id: "service-accounts",
+    category: "Integrations",
+    title: "Service Accounts (API keys)",
+    content: `# Service Accounts + API keys
+
+For B2B2C scenarios — Gitlawb Playground, an agent platform, a hosted app builder — your end-users probably don't have wallets. Service Accounts let you (the master tenant) mint scoped API keys and distribute them to apps without giving up your wallet.
+
+## How it works
+
+\`\`\`
+Master wallet (you)         →   /v1/service/keys POST   →  scoped API key
+   ↓                                                        e.g. mneme_sk_abc123…
+Your backend                ←   distribute to apps         ↓
+   ↓                                                        ↓
+Each app   →  Authorization: ApiKey mneme_sk_…   →  Mneme gateway
+                                                       ↓
+                                              scope-restricted access
+                                              to your schema's tables
+\`\`\`
+
+## Create a key
+
+From the [dashboard's API keys tab](/), or via SDK / REST:
+
+\`\`\`typescript
+import { Mneme } from "mneme-sdk";
+const m = new Mneme({ account: yourWallet, gatewayUrl: "..." });
+
+const { key, key_prefix, scope } = await m.serviceKeys.create({
+  scope:     "app_xyz123",            // table-name prefix
+  label:     "Production · App XYZ",  // human-readable
+  rpm_limit: 1200,                    // per-key rate limit
+});
+// → key = "mneme_sk_..." (save this, it won't be shown again)
+\`\`\`
+
+REST equivalent:
+\`\`\`http
+POST /v1/service/keys
+Authorization: Mneme <wallet sig>
+
+{ "scope": "app_xyz123", "label": "...", "rpm_limit": 1200 }
+\`\`\`
+
+## Use a key
+
+\`\`\`typescript
+const appClient = new Mneme({
+  apiKey:     "mneme_sk_...",
+  gatewayUrl: "https://gateway.mnemedb.dev",
+});
+
+// Allowed — table starts with the key's scope
+await appClient.from("app_xyz123_todos").insert({ title: "ship" });
+
+// Blocked — different namespace
+await appClient.from("app_other_users").insert({...});
+// → 403 "api key scoped to \"app_xyz123_*\" cannot access table \"app_other_users\""
+\`\`\`
+
+REST equivalent:
+\`\`\`http
+POST /v1/rows/app_xyz123_todos
+Authorization: ApiKey mneme_sk_...
+\`\`\`
+
+## Scope rules
+
+A key with scope \`app_xyz\` can access:
+
+| Table             | Allowed |
+| ----------------- | ------- |
+| \`app_xyz\`       | ✓ exact match |
+| \`app_xyz_todos\` | ✓ scope prefix |
+| \`app_xyz_users\` | ✓ scope prefix |
+| \`memories\`      | ✗ no prefix match |
+| \`app_other\`     | ✗ different scope |
+
+## What API keys CANNOT do
+
+- Mint other API keys (no privilege escalation — only wallet-authed calls can create/revoke keys)
+- Use the raw SQL endpoint (\`/v1/sql\`) — scope is hard to enforce on arbitrary SQL. Stick to typed CRUD which respects scope.
+- Access the storage burn endpoint — burns must come from the wallet that owns the $MNEME.
+
+## Recommended pattern for B2B2C platforms
+
+1. **You** (the platform) hold the master wallet — one Mneme handle for your platform
+2. **Your backend** creates a key per end-user app (or per end-user, depending on isolation needs)
+3. **Your end-users** never see Mneme directly — they interact with your platform's UI
+4. **Your platform** stores keys server-side, never exposes them to the browser
+5. **Rate-limit headers** are returned on every response — surface them in your UI if you want
+
+## Revocation
+
+\`\`\`typescript
+await m.serviceKeys.list();                 // see all keys (no raw values)
+await m.serviceKeys.revoke(keyId);          // permanent
+\`\`\`
+
+Revoked keys return \`401 invalid or revoked api key\`. There's no un-revoke; create a new one if needed.
+
+## Rate limits
+
+Each key has its own rate-limit bucket (default 1200 req/min, configurable up to 10000 on create). Burst more than that and you get a 429 with \`Retry-After\` set to the window reset.
+
+## Pricing
+
+Free during the pilot. Phase 2 ships per-tenant billing where you (the master wallet) get an aggregate usage report and pay a flat or metered tier — we'll never charge your end-users directly.
+`,
+  },
+
   // ─────────────────────────── CONCEPTS ─────────────────────────────────
   {
     id: "storage-overview",

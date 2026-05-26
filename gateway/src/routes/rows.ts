@@ -1,8 +1,13 @@
 import { Hono } from "hono";
 import { sql, isValidTableName, defaultOrderColumn, DEFAULT_TABLES } from "../db";
+import { enforceApiKeyScope } from "../auth";
 import type { StatusCode } from "hono/utils/http-status";
 
 const route = new Hono();
+
+function checkScope(c: { get: (k: "apiKeyScope") => string | undefined }, table: string) {
+  return enforceApiKeyScope(c.get("apiKeyScope"), table);
+}
 
 /**
  * pgvector wants its literal as `'[a,b,c]'`, not as a JS array (postgres.js
@@ -69,6 +74,8 @@ function parseWhereClauses(rawClauses: string[]): ParsedFilter[] | { error: stri
 route.post("/:table", async (c) => {
   const table = c.req.param("table");
   if (!isValidTableName(table)) return c.json({ error: "invalid table name" }, 400);
+  const scopeErr = checkScope(c, table);
+  if (scopeErr) return c.json(scopeErr, 403);
 
   const schema = c.get("project").schema_name;
 
@@ -107,6 +114,8 @@ route.post("/:table", async (c) => {
 route.get("/:table", async (c) => {
   const table = c.req.param("table");
   if (!isValidTableName(table)) return c.json({ error: "invalid table name" }, 400);
+  const scopeErr = checkScope(c, table);
+  if (scopeErr) return c.json(scopeErr, 403);
 
   const schema = c.get("project").schema_name;
   const limit  = Math.min(Math.max(Number(c.req.query("limit")  ?? 100), 1), 1000);
@@ -173,6 +182,8 @@ route.patch("/:table/:id", async (c) => {
   const id    = c.req.param("id");
   if (!isValidTableName(table)) return c.json({ error: "invalid table name" }, 400);
   if (!/^[a-zA-Z0-9_\-]+$/.test(id)) return c.json({ error: "invalid id" }, 400);
+  const scopeErr = checkScope(c, table);
+  if (scopeErr) return c.json(scopeErr, 403);
 
   const schema = c.get("project").schema_name;
 
@@ -213,6 +224,8 @@ route.delete("/:table/:id", async (c) => {
   const id    = c.req.param("id");
   if (!isValidTableName(table)) return c.json({ error: "invalid table name" }, 400);
   if (!/^[a-zA-Z0-9_\-]+$/.test(id)) return c.json({ error: "invalid id" }, 400);
+  const scopeErr = checkScope(c, table);
+  if (scopeErr) return c.json(scopeErr, 403);
 
   const schema = c.get("project").schema_name;
 
@@ -237,6 +250,8 @@ route.delete("/:table/:id", async (c) => {
 route.delete("/:table", async (c) => {
   const table = c.req.param("table");
   if (!isValidTableName(table)) return c.json({ error: "invalid table name" }, 400);
+  const scopeErr = checkScope(c, table);
+  if (scopeErr) return c.json(scopeErr, 403);
   const schema = c.get("project").schema_name;
 
   const whereClauses = c.req.queries("where") ?? [];

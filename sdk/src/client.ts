@@ -11,8 +11,9 @@ import type {
 } from "./types";
 
 export type MnemeAuth =
-  | { account:     Account;  accessToken?: never }
-  | { accessToken: string;   account?:     never };
+  | { account:     Account;  accessToken?: never; apiKey?: never }
+  | { accessToken: string;   account?:     never; apiKey?: never }
+  | { apiKey:      string;   account?:     never; accessToken?: never };
 
 export type MnemeOptions = MnemeAuth & {
   gatewayUrl:     string;
@@ -76,9 +77,13 @@ export class Mneme {
   readonly kvs:       Collection<KvRow>;
 
   constructor(opts: MnemeOptions) {
-    this.auth = "accessToken" in opts && opts.accessToken
-      ? { accessToken: opts.accessToken }
-      : { account: (opts as { account: Account }).account };
+    if ("apiKey" in opts && opts.apiKey) {
+      this.auth = { apiKey: opts.apiKey };
+    } else if ("accessToken" in opts && opts.accessToken) {
+      this.auth = { accessToken: opts.accessToken };
+    } else {
+      this.auth = { account: (opts as { account: Account }).account };
+    }
     this.gatewayUrl    = opts.gatewayUrl.replace(/\/$/, "");
     this.chainId       = opts.chainId       ?? 8453;
     this.domainName    = opts.domainName    ?? "Mneme";
@@ -112,6 +117,48 @@ export class Mneme {
   from<T = unknown>(table: string): Collection<T> {
     return new Collection<T>(this, table);
   }
+
+  /**
+   * Service-account API keys — for B2B2C integrators (e.g. Gitlawb) that
+   * distribute scoped keys to end-users who don't have wallets.
+   *
+   * Only callable by wallet-authed clients (keys cannot mint more keys).
+   */
+  readonly serviceKeys = {
+    /** Mint a new scoped key. Returns the raw key value ONCE. */
+    create: (args: { scope: string; label?: string; rpm_limit?: number }) =>
+      this.request<{
+        ok:         true;
+        id:         number;
+        key:        string;        // ← raw key value, save it
+        key_prefix: string;
+        scope:      string;
+        label:      string | null;
+        rpm_limit:  number;
+        created_at: string;
+        warning:    string;
+      }>("POST", "/v1/service/keys", args),
+
+    /** List all keys you've created (no raw values — only metadata). */
+    list: () =>
+      this.request<{
+        keys: Array<{
+          id: number;
+          key_prefix: string;
+          scope: string;
+          label: string | null;
+          rpm_limit: number;
+          revoked: boolean;
+          revoked_at: string | null;
+          last_used_at: string | null;
+          created_at: string;
+        }>;
+      }>("GET", "/v1/service/keys"),
+
+    /** Revoke a key by id. */
+    revoke: (id: number) =>
+      this.request<{ ok: true; id: number }>("DELETE", `/v1/service/keys/${id}`),
+  };
 
   /**
    * Run raw SQL against your project's Postgres schema.
@@ -231,7 +278,9 @@ export class Mneme {
     const bodyText = body === undefined ? "" : JSON.stringify(body);
     const headers: Record<string, string> = { "Content-Type": "application/json" };
 
-    if ("accessToken" in this.auth && this.auth.accessToken) {
+    if ("apiKey" in this.auth && this.auth.apiKey) {
+      headers["Authorization"] = `ApiKey ${this.auth.apiKey}`;
+    } else if ("accessToken" in this.auth && this.auth.accessToken) {
       headers["Authorization"] = `Bearer ${this.auth.accessToken}`;
     } else if ("account" in this.auth && this.auth.account) {
       const signed = await signRequest({
@@ -245,7 +294,7 @@ export class Mneme {
       });
       Object.assign(headers, signed);
     } else {
-      throw new Error("Mneme: either { account } or { accessToken } is required");
+      throw new Error("Mneme: one of { account }, { accessToken }, or { apiKey } is required");
     }
 
     const res = await fetch(`${this.gatewayUrl}${path}`, {

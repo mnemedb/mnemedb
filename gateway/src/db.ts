@@ -115,6 +115,94 @@ export async function initDb() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS _mneme_storage_burns_wallet_idx ON _mneme_storage_burns (wallet)`;
+
+  // ─── Service-account API keys (Option C for Gitlawb-style integrators) ──
+  // The "owner" wallet (the master tenant — e.g. Gitlawb) mints keys to
+  // distribute to apps. Each key is scoped to a sub-namespace (table-name
+  // prefix) inside the owner's schema. Apps authenticate with the key
+  // header instead of a wallet signature.
+  //
+  // We store SHA-256 hashes, never the raw key. Keys are revocable.
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_api_keys (
+      id            bigserial primary key,
+      key_hash      text unique not null,
+      key_prefix    text not null,             -- first 12 chars (display only)
+      owner_wallet  text not null,             -- master tenant wallet
+      scope         text not null,             -- table-name prefix this key may touch (e.g. "app_xyz123")
+      label         text,                      -- human-friendly description
+      rpm_limit     int not null default 1200, -- per-key rate limit
+      revoked_at    timestamptz,
+      last_used_at  timestamptz,
+      created_at    timestamptz default now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_api_keys_owner_idx ON _mneme_api_keys (owner_wallet) WHERE revoked_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_api_keys_hash_idx  ON _mneme_api_keys (key_hash) WHERE revoked_at IS NULL`;
+}
+
+// ─── API key helpers ────────────────────────────────────────────────────
+const SCOPE_RX = /^[a-z][a-z0-9_]{0,62}$/;
+
+export function isValidScope(s: string): boolean {
+  return SCOPE_RX.test(s);
+}
+
+/** SHA-256 hex (web crypto, works in Bun + Node 20+). */
+export async function hashApiKey(key: string): Promise<string> {
+  const bytes = new TextEncoder().encode(key);
+  const buf   = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export interface ApiKeyRecord {
+  id:            number;
+  key_prefix:    string;
+  owner_wallet:  string;
+  scope:         string;
+  label:         string | null;
+  rpm_limit:     number;
+  revoked_at:    Date | null;
+  last_used_at:  Date | null;
+  created_at:    Date;
+}
+
+export async function lookupApiKey(rawKey: string): Promise<ApiKeyRecord | null> {
+  const hash = await hashApiKey(rawKey);
+  const rows = await sql<ApiKeyRecord[]>`
+    SELECT id, key_prefix, owner_wallet, scope, label, rpm_limit,
+           revoked_at, last_used_at, created_at
+    FROM _mneme_api_keys
+    WHERE key_hash = ${hash} AND revoked_at IS NULL
+    LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
+
+/** Best-effort last_used_at bump — debounced via a Map to avoid write storms. */
+const lastUsedDirty = new Map<number, number>();
+let lastFlushAt = Date.now();
+
+export function bumpKeyLastUsed(keyId: number) {
+  lastUsedDirty.set(keyId, Date.now());
+  if (Date.now() - lastFlushAt > 30_000 && lastUsedDirty.size > 0) {
+    void flushKeyLastUsed();
+  }
+}
+async function flushKeyLastUsed() {
+  lastFlushAt = Date.now();
+  const ids = [...lastUsedDirty.keys()];
+  lastUsedDirty.clear();
+  if (ids.length === 0) return;
+  try {
+    await sql`
+      UPDATE _mneme_api_keys
+      SET last_used_at = now()
+      WHERE id = ANY(${ids}::bigint[])
+    `;
+  } catch {
+    // best-effort, ignore
+  }
 }
 
 // ─── Storage quota helpers ──────────────────────────────────────────────

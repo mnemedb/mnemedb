@@ -7,12 +7,13 @@ import { ProjectHome } from "./components/ProjectHome";
 import { TablesView } from "./components/TablesView";
 import { StorageView } from "./components/StorageView";
 import { SqlEditor } from "./components/SqlEditor";
+import { ServiceKeysView } from "./components/ServiceKeysView";
 import { Docs } from "./components/Docs";
 import { SettingsView } from "./components/SettingsView";
 import { useSession } from "./lib/session";
 import { useProjectMe } from "./lib/project";
 
-type View = "home" | "tables" | "sql" | "storage" | "settings";
+type View = "home" | "tables" | "sql" | "storage" | "keys" | "settings";
 
 export function App() {
   // Docs route — public, no auth needed
@@ -86,6 +87,7 @@ export function App() {
           <NavItem active={view === "tables"}   onClick={() => setView("tables")}   label="Tables" />
           <NavItem active={view === "sql"}      onClick={() => setView("sql")}      label="SQL" />
           <NavItem active={view === "storage"}  onClick={() => setView("storage")}  label="Storage" />
+          <NavItem active={view === "keys"}     onClick={() => setView("keys")}     label="API keys" />
           <NavItem active={view === "settings"} onClick={() => setView("settings")} label="Settings" />
           <a
             href="/docs"
@@ -99,6 +101,7 @@ export function App() {
           {view === "tables"   && <TablesView />}
           {view === "sql"      && <SqlEditor />}
           {view === "storage"  && <StorageView />}
+          {view === "keys"     && <ServiceKeysView />}
           {view === "settings" && <SettingsView project={project} />}
         </main>
       </div>

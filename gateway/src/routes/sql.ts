@@ -41,6 +41,15 @@ function findForeignSchemaRefs(query: string, ownSchema: string): string[] {
 }
 
 route.post("/", async (c) => {
+  // Raw SQL is wallet-only — we can't reliably enforce per-key scope on
+  // arbitrary SQL without parsing the AST. Integrators using API keys must
+  // stick to the typed CRUD endpoints which enforce scope.
+  if (c.get("apiKeyId") !== undefined) {
+    return c.json({
+      error: "raw SQL is not available on API-key auth — use the typed CRUD endpoints which respect your key's scope",
+    }, 403);
+  }
+
   const project = c.get("project");
   const schema  = project.schema_name;
 

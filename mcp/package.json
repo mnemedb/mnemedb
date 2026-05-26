@@ -1,12 +1,12 @@
 {
   "name": "mneme-mcp",
-  "version": "0.1.0",
-  "description": "MCP server for Mneme — let Claude / Cursor / Cline use your agent's Postgres database AND file storage as tools.",
+  "version": "0.2.0",
+  "description": "MCP server + OpenClaude plugin for Mneme — Postgres + R2 storage + vector search on Base, as 14 agent tools.",
   "type": "module",
   "bin": {
     "mneme-mcp": "./dist/index.js"
   },
-  "files": ["dist", "README.md"],
+  "files": ["dist", "skills", ".claude-plugin", "README.md"],
   "scripts": {
     "build":     "tsup src/index.ts --format esm --clean",
     "dev":       "tsup src/index.ts --format esm --watch",
@@ -17,13 +17,19 @@
     "mneme",
     "mcp",
     "model-context-protocol",
+    "openclaude",
+    "claude-code-plugin",
     "agent",
     "database",
     "postgres",
     "pgvector",
+    "storage",
+    "base",
+    "wallet",
     "claude",
     "cursor",
     "cline",
+    "gitlawb",
     "ai"
   ],
   "license": "MIT",
@@ -36,7 +42,7 @@
   "author": "mnemedb",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "mneme-sdk":                 "workspace:*",
+    "mneme-sdk":                 "^0.2.0",
     "viem":                      "^2.21.0",
     "zod":                       "^3.23.0"
   },

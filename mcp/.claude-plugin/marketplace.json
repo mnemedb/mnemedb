@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "mneme",
+  "displayName": "Mneme",
+  "description": "Agent-native database on Base. Real Postgres schema per wallet, runtime DDL, pgvector, wallet-bound R2 storage with $MNEME burn utility.",
+  "owner": {
+    "name": "mneme",
+    "url":  "https://mnemedb.dev"
+  },
+  "plugins": [
+    {
+      "name": "mneme",
+      "description": "Give your agent its own Postgres schema, vector search, and wallet-bound storage on Base. Eleven tools: create tables at runtime, insert/list/update/delete rows with WHERE filters, KNN vector search, file upload/list/delete, presigned URLs, on-chain $MNEME burn for storage quota.",
+      "version": "0.2.0",
+      "source": {
+        "source": "npm",
+        "package": "mneme-mcp"
+      },
+      "tags": ["database", "postgres", "vector", "storage", "base", "wallet", "agent", "mcp"]
+    }
+  ]
+}

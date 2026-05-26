@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin.json",
+  "name": "mneme",
+  "displayName": "Mneme",
+  "version": "0.2.0",
+  "description": "Wallet-bound Postgres + storage on Base, exposed as 11 agent tools.",
+  "author": {
+    "name": "mneme",
+    "url":  "https://mnemedb.dev"
+  },
+  "homepage": "https://mnemedb.dev",
+  "repository": "https://github.com/mnemedb/mnemedb",
+  "skills": "skills",
+  "mcpServers": {
+    "mneme": {
+      "command": "npx",
+      "args":    ["-y", "mneme-mcp"],
+      "env": {
+        "MNEME_AGENT_PRIVATE_KEY": "${MNEME_AGENT_PRIVATE_KEY}",
+        "MNEME_GATEWAY_URL":       "${MNEME_GATEWAY_URL:-https://gateway.mnemedb.dev}"
+      }
+    }
+  }
+}

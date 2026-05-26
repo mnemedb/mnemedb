@@ -81,18 +81,73 @@ server.registerTool(
 server.registerTool(
   "mneme_list",
   {
-    title: "List rows",
+    title: "List rows (with WHERE filter)",
     description:
-      "List rows from any table in your schema. Default tables sort by created_at desc (or updated_at for kvs); custom tables sort by id desc unless you pass `order`.",
+      "List rows from any table. Supports PostgREST-style filters: pass `where` as an array of `col.op.value` strings. Ops: eq, neq, gt, gte, lt, lte, like, ilike, in, is. " +
+      "Example: where=[\"done.eq.false\", \"score.gt.10\"]. Order syntax: \"created_at.desc\". " +
+      "Default tables sort by created_at desc (updated_at for kvs); custom tables sort by id desc unless `order` is passed.",
     inputSchema: {
       table:  z.string(),
       limit:  z.number().optional(),
       offset: z.number().optional(),
       order:  z.string().optional(),
+      where:  z.array(z.string()).optional(),
     },
   },
-  async ({ table, limit, offset, order }) => {
-    const r = await mneme.from(table).list({ limit, offset, order });
+  async ({ table, limit, offset, order, where }) => {
+    const r = await mneme.from(table).list({ limit, offset, order, where });
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
+server.registerTool(
+  "mneme_update",
+  {
+    title: "Update a row by id",
+    description:
+      "Update a single row by its id. Pass `table`, `id`, and `updates` (an object mapping column names to new values). Vector columns accept JS number arrays.",
+    inputSchema: {
+      table:   z.string(),
+      id:      z.union([z.string(), z.number()]),
+      updates: z.record(z.unknown()),
+    },
+  },
+  async ({ table, id, updates }) => {
+    const r = await mneme.from(table).update(id, updates as Record<string, unknown>);
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
+server.registerTool(
+  "mneme_delete",
+  {
+    title: "Delete a row by id",
+    description:
+      "Delete a single row by its id. Pass `table` and `id`. Returns confirmation with the deleted id.",
+    inputSchema: {
+      table: z.string(),
+      id:    z.union([z.string(), z.number()]),
+    },
+  },
+  async ({ table, id }) => {
+    const r = await mneme.from(table).delete(id);
+    return { content: [{ type: "text", text: JSON.stringify(r) }] };
+  },
+);
+
+server.registerTool(
+  "mneme_delete_where",
+  {
+    title: "Bulk delete rows by filter",
+    description:
+      "Bulk delete rows matching a filter. REQUIRED: pass `where` as an array of `col.op.value` strings (refuses to delete an entire table without filter). Ops: eq, neq, gt, gte, lt, lte, like, ilike, in, is.",
+    inputSchema: {
+      table: z.string(),
+      where: z.array(z.string()),
+    },
+  },
+  async ({ table, where }) => {
+    const r = await mneme.from(table).deleteWhere(where);
     return { content: [{ type: "text", text: JSON.stringify(r) }] };
   },
 );

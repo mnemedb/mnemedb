@@ -233,9 +233,13 @@ export class Mneme {
   }
 }
 
+/** PostgREST-ish where clause. e.g. `["status.eq.done", "score.gt.10"]`. */
+export type WhereClause = string;
+
 export class Collection<T = unknown> {
   constructor(private mneme: Mneme, public readonly table: string) {}
 
+  /** Insert one row or an array of rows. Returns the inserted rows. */
   insert(rows: T | T[]) {
     return this.mneme.request<{ inserted: number; rows: T[] }>(
       "POST",
@@ -244,12 +248,55 @@ export class Collection<T = unknown> {
     );
   }
 
-  list(opts?: { limit?: number; offset?: number; order?: string }) {
+  /**
+   * List rows. Supports filtering with `where` (PostgREST-style col.op.value),
+   * ordering with `order` (e.g. "created_at.desc"), and pagination.
+   *
+   * Ops: eq, neq, gt, gte, lt, lte, like, ilike, in, is.
+   * Example: `m.from("todos").list({ where: ["done.eq.false"], order: "created_at.desc" })`
+   */
+  list(opts?: { limit?: number; offset?: number; order?: string; where?: WhereClause | WhereClause[] }) {
     const q = new URLSearchParams();
     if (opts?.limit  != null) q.set("limit",  String(opts.limit));
     if (opts?.offset != null) q.set("offset", String(opts.offset));
     if (opts?.order)          q.set("order",  opts.order);
+    if (opts?.where) {
+      const ws = Array.isArray(opts.where) ? opts.where : [opts.where];
+      for (const w of ws) q.append("where", w);
+    }
     const qs = q.toString() ? `?${q}` : "";
-    return this.mneme.request<{ rows: T[] }>("GET", `/v1/rows/${this.table}${qs}`);
+    return this.mneme.request<{ rows: T[]; count: number }>("GET", `/v1/rows/${this.table}${qs}`);
+  }
+
+  /** Update one row by id. Returns the updated row. */
+  update(id: string | number, updates: Partial<T>) {
+    return this.mneme.request<{ updated: 1; row: T }>(
+      "PATCH",
+      `/v1/rows/${this.table}/${id}`,
+      updates,
+    );
+  }
+
+  /** Delete one row by id. */
+  delete(id: string | number) {
+    return this.mneme.request<{ deleted: 1; id: number | string }>(
+      "DELETE",
+      `/v1/rows/${this.table}/${id}`,
+    );
+  }
+
+  /**
+   * Bulk delete by filter. Refuses to delete the whole table — at least one
+   * where clause is required. Returns the count of deleted rows.
+   */
+  deleteWhere(where: WhereClause | WhereClause[]) {
+    const ws = Array.isArray(where) ? where : [where];
+    if (ws.length === 0) throw new Error("deleteWhere requires at least one filter");
+    const q = new URLSearchParams();
+    for (const w of ws) q.append("where", w);
+    return this.mneme.request<{ deleted: number }>(
+      "DELETE",
+      `/v1/rows/${this.table}?${q}`,
+    );
   }
 }

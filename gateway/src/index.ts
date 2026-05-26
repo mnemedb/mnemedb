@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { authMiddleware } from "./auth";
+import { rateLimitMiddleware } from "./rateLimit";
 import { initDb } from "./db";
 import { tablesRoute } from "./routes/tables";
 import { rowsRoute } from "./routes/rows";
@@ -25,6 +26,7 @@ app.route("/sessions", sessionsRoute);    // MnemeSession sig  → session
 
 // AUTHED endpoints — require Bearer session OR per-request EIP-712 sig.
 app.use("/v1/*", authMiddleware);
+app.use("/v1/*", rateLimitMiddleware);
 app.route("/v1/tables",      tablesRoute);
 app.route("/v1/rows",        rowsRoute);
 app.route("/v1/vector",      vectorRoute);

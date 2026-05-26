@@ -151,29 +151,171 @@ const { public_url } = await m.storage.upload({
         </div>
       </section>
 
-      {/* ════ What you can build ════════════════════════════════════════════ */}
-      <section className="py-24 border-t border-ink-900">
-        <div className="max-w-6xl mx-auto px-6 md:px-10">
+      {/* ════ Feature grid (Supabase-style) ═════════════════════════════════ */}
+      <section id="features" className="py-24 border-t border-ink-900">
+        <div className="max-w-7xl mx-auto px-6 md:px-10">
           <div className="text-xs uppercase tracking-[0.3em] text-gold-300/80 mb-3">
-            what you can build
+            the stack
           </div>
-          <h2 className="text-3xl md:text-4xl font-semibold mb-12 max-w-2xl tracking-tight">
-            One stack. Whatever your agent has to remember.
+          <h2 className="text-3xl md:text-5xl font-semibold mb-3 max-w-3xl tracking-tight">
+            Ship in a day.<br />
+            <span className="text-gold-300">Scale to a million wallets.</span>
           </h2>
+          <p className="text-ink-400 max-w-2xl mb-12 leading-relaxed">
+            Mneme is the agent-native development platform on Base. Start your
+            project with a real Postgres schema, wallet auth, instant REST,
+            vector search, wallet-bound storage, MCP-native agent tools, and
+            scoped API keys for B2B2C distribution.
+          </p>
+
           <div className="grid md:grid-cols-3 gap-4">
-            <UseCase
-              title="Agents that remember"
-              desc="Use the built-in memories + documents tables. Pgvector KNN out of the box. Your chatbot keeps state across sessions, your RAG pipeline has a real backing store."
+            {/* ── Postgres ── */}
+            <FeatureCard
+              icon={<DbIcon />}
+              title="Postgres Database"
+              desc="Every wallet gets a fully isolated Postgres schema with four memory tables ready to go and runtime DDL for whatever else you need."
+              accents={["100% portable", "Built-in auth", "Easy to extend"]}
+              visual={
+                <div className="space-y-1 font-mono text-[11px] text-ink-400">
+                  <SchemaLine name="memories"  hl />
+                  <SchemaLine name="documents" />
+                  <SchemaLine name="events"    />
+                  <SchemaLine name="kvs"       />
+                  <SchemaLine name="todos"     custom />
+                  <SchemaLine name="orders"    custom />
+                </div>
+              }
             />
-            <UseCase
-              title="Agents that trade"
-              desc="Create tables for orders, signals, prices. Append-only events log every decision. Query with full Postgres power — JSONB for unstructured payloads, vector(N) for similarity matching."
+
+            {/* ── Wallet auth ── */}
+            <FeatureCard
+              icon={<KeyIcon />}
+              title="Wallet Auth"
+              desc="EIP-712 typed-data on every request. Smart wallets via ERC-1271/6492. No API keys to leak, no passwords to phish."
+              accents={["EOA + Smart wallet", "Privy embedded", "Session JWTs"]}
+              visual={
+                <div className="space-y-1.5">
+                  <AuthRow icon="✉" label="alice@email.com" />
+                  <AuthRow icon="G" label="google sign-in" />
+                  <AuthRow icon="𝕏" label="@alice" />
+                  <AuthRow icon="◈" label="0xa11ce…42" />
+                </div>
+              }
             />
-            <UseCase
-              title="Agents that coordinate"
-              desc="Multi-agent systems share state through a Mneme schema. Each agent has its own wallet identity; Phase 2 ships onchain permissions so one project can grant other agents read/write on specific tables."
+
+            {/* ── Instant API ── */}
+            <FeatureCard
+              icon={<ApiIcon />}
+              title="Instant REST + SDK"
+              desc="PostgREST-style queries via the REST gateway, fully typed in TypeScript. No backend code, no edge functions to deploy."
+              accents={["GET / POST / PATCH / DELETE", "WHERE filters", "Cursor pagination"]}
+              visual={
+                <div className="space-y-1 font-mono text-[11px]">
+                  <RestLine method="GET"    path="/v1/rows/todos?where=done.eq.false" />
+                  <RestLine method="POST"   path="/v1/rows/todos" />
+                  <RestLine method="PATCH"  path="/v1/rows/todos/42" />
+                  <RestLine method="DELETE" path="/v1/rows/todos/42" />
+                </div>
+              }
+            />
+
+            {/* ── Vector ── */}
+            <FeatureCard
+              icon={<VecIcon />}
+              title="Vector Search"
+              desc="pgvector built into every schema. KNN over any vector column on any table. Compatible with OpenAI, Cohere, HuggingFace embeddings."
+              accents={["1536-dim + custom", "HNSW indexing", "L2 / cosine / inner"]}
+              visual={
+                <div className="space-y-1.5 font-mono text-[11px]">
+                  <VecRow label="memory #42" score="0.12" />
+                  <VecRow label="memory #7"  score="0.31" />
+                  <VecRow label="memory #18" score="0.58" />
+                  <VecRow label="memory #3"  score="0.74" />
+                </div>
+              }
+            />
+
+            {/* ── Storage ── */}
+            <FeatureCard
+              icon={<StorageIcon />}
+              title="Wallet-bound Storage"
+              desc="100 MB free per wallet on Cloudflare R2 (served from cdn.mnemedb.dev, zero egress). Extend by burning $MNEME on Base — verified on-chain."
+              accents={["public + private", "Presigned URLs", "$MNEME burn → GB"]}
+              visual={
+                <div className="space-y-2">
+                  <QuotaBar used={32} total={100} />
+                  <div className="font-mono text-[10px] text-ink-500">
+                    cdn.mnemedb.dev/<span className="text-gold-300/80">handle</span>/public/<span className="text-gold-300/80">file</span>
+                  </div>
+                </div>
+              }
+            />
+
+            {/* ── MCP ── */}
+            <FeatureCard
+              icon={<McpIcon />}
+              title="MCP-native"
+              desc="15 tools exposed to Claude, Cursor, Cline, OpenClaude. Your agent gets CRUD + WHERE + vector + storage + raw SQL out of the box."
+              accents={["Claude / Cursor", "OpenClaude plugin", "npm i -g mneme-mcp"]}
+              visual={
+                <div className="grid grid-cols-3 gap-1 font-mono text-[9px] text-ink-400">
+                  {["create_table","list_tables","insert","list","update","delete","delete_where","vector_search","sql","storage_upload","storage_list","storage_delete","storage_url","storage_quota","storage_burn"].map((t) => (
+                    <div key={t} className="bg-ink-950 border border-ink-800 rounded px-1.5 py-1 text-center truncate" title={`mneme_${t}`}>{t}</div>
+                  ))}
+                </div>
+              }
+            />
+
+            {/* ── Service Accounts ── */}
+            <FeatureCard
+              icon={<TeamIcon />}
+              title="Service Accounts"
+              desc="For B2B2C platforms — mint scoped API keys from your master wallet, distribute to apps without giving up your wallet. Each key is rate-limited and namespace-isolated."
+              accents={["Scope per key", "Per-key rate limits", "One-tap revoke"]}
+              visual={
+                <div className="space-y-1 font-mono text-[10px]">
+                  <KeyRow prefix="mneme_sk_abc123" scope="app_xyz" />
+                  <KeyRow prefix="mneme_sk_def456" scope="app_pdq" />
+                  <KeyRow prefix="mneme_sk_ghi789" scope="app_ops" revoked />
+                </div>
+              }
+            />
+
+            {/* ── SQL editor ── */}
+            <FeatureCard
+              icon={<SqlIcon />}
+              title="SQL Editor"
+              desc="Full Postgres in your browser, scoped to your schema. JOIN, aggregate, CTEs, EXPLAIN — anything that doesn't escape your tenant. 5s timeout, 1000-row cap."
+              accents={["Single statement", "Schema-scoped", "Query history"]}
+              visual={
+                <div className="bg-ink-950 border border-ink-800 rounded p-2 font-mono text-[10px] text-ink-300 leading-relaxed">
+                  <div><span className="text-gold-300">SELECT</span> author, count(*)</div>
+                  <div><span className="text-gold-300">FROM</span>   books</div>
+                  <div><span className="text-gold-300">GROUP BY</span> author</div>
+                  <div><span className="text-gold-300">ORDER BY</span> 2 <span className="text-gold-300">DESC</span></div>
+                </div>
+              }
+            />
+
+            {/* ── Phase 2 ── */}
+            <FeatureCard
+              icon={<RealtimeIcon />}
+              title="Realtime + onchain"
+              desc="Coming: Postgres LISTEN/NOTIFY subscriptions over WebSocket, and the onchain handle registry (AgentRegistry.sol already deployed on Base)."
+              accents={["Phase 2 · 4-8 weeks", "WebSocket pushes", "Onchain handles"]}
+              visual={
+                <div className="space-y-1.5 text-[10px]">
+                  <PulseRow label="new_message in chat_1234" />
+                  <PulseRow label="updated todo #88" />
+                  <PulseRow label="row inserted: orders" />
+                </div>
+              }
             />
           </div>
+
+          <p className="text-center text-xs text-ink-500 mt-12">
+            Use one or all. Best of breed primitives. Integrated as a platform.
+          </p>
         </div>
       </section>
 
@@ -466,6 +608,122 @@ function UseCase({ title, desc }: { title: string; desc: string }) {
     </div>
   );
 }
+
+/* ─── Feature card (Supabase-style) ─────────────────────────────────────── */
+function FeatureCard({
+  icon, title, desc, accents, visual,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  accents: string[];
+  visual: React.ReactNode;
+}) {
+  return (
+    <div className="bg-ink-900 border border-ink-800 rounded-2xl p-6 flex flex-col gap-4 hover:border-gold-300/30 transition group">
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-gold-300">{icon}</div>
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold mb-1.5">{title}</h3>
+        <p className="text-ink-400 text-sm leading-relaxed">{desc}</p>
+      </div>
+
+      <div className="bg-ink-950/60 border border-ink-800 rounded-lg p-3 min-h-[110px] flex flex-col justify-center">
+        {visual}
+      </div>
+
+      <ul className="space-y-1 text-xs text-ink-400">
+        {accents.map((a) => (
+          <li key={a} className="flex items-center gap-2">
+            <span className="text-gold-300/70">✓</span> {a}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* ─── Small visual atoms ───────────────────────────────────────────────── */
+function SchemaLine({ name, hl, custom }: { name: string; hl?: boolean; custom?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between px-2 py-0.5 rounded ${hl ? "bg-gold-300/10 text-gold-300" : ""}`}>
+      <span className={custom ? "text-gold-300/70" : ""}>{name}</span>
+      <span className="text-[10px] text-ink-600">{custom ? "custom" : "default"}</span>
+    </div>
+  );
+}
+function AuthRow({ icon, label }: { icon: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-xs text-ink-300">
+      <div className="w-5 h-5 rounded bg-ink-800 flex items-center justify-center text-gold-300/80 font-mono text-[10px]">{icon}</div>
+      <span className="font-mono">{label}</span>
+    </div>
+  );
+}
+function RestLine({ method, path }: { method: string; path: string }) {
+  const colors: Record<string, string> = { GET: "text-emerald-400", POST: "text-sky-400", PATCH: "text-amber-400", DELETE: "text-red-400" };
+  return (
+    <div className="flex gap-2 text-[10px]">
+      <span className={`${colors[method] ?? "text-ink-400"} w-12 shrink-0`}>{method}</span>
+      <span className="text-ink-400 truncate">{path}</span>
+    </div>
+  );
+}
+function VecRow({ label, score }: { label: string; score: string }) {
+  return (
+    <div className="flex justify-between text-xs">
+      <span className="text-ink-300">{label}</span>
+      <span className="text-gold-300/80">{score}</span>
+    </div>
+  );
+}
+function QuotaBar({ used, total }: { used: number; total: number }) {
+  const pct = Math.round((used / total) * 100);
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-[10px] text-ink-400">
+        <span>{used} MB used</span><span>{total} MB free</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-ink-800 overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-gold-300 to-gold-500" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+function KeyRow({ prefix, scope, revoked }: { prefix: string; scope: string; revoked?: boolean }) {
+  return (
+    <div className={`flex justify-between gap-3 text-[10px] py-0.5 ${revoked ? "opacity-40 line-through" : ""}`}>
+      <span className="text-ink-300 truncate">{prefix}…</span>
+      <span className="text-gold-300/80 shrink-0">{scope}</span>
+    </div>
+  );
+}
+function PulseRow({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-ink-300">
+      <span className="relative flex h-1.5 w-1.5">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+      </span>
+      <span className="font-mono text-[10px]">{label}</span>
+    </div>
+  );
+}
+
+/* ─── Icons (inline SVG, brand gold accents) ──────────────────────────── */
+const I = ({ children, ...p }: React.SVGProps<SVGSVGElement>) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}>{children}</svg>
+);
+const DbIcon       = () => <I><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v6c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 11v6c0 1.7 4 3 9 3s9-1.3 9-3v-6"/></I>;
+const KeyIcon      = () => <I><circle cx="15.5" cy="8.5" r="5.5"/><path d="M11 13l-7 7v3h3l1-1v-2h2v-2h2l1-1"/></I>;
+const ApiIcon      = () => <I><path d="M3 12h4"/><path d="M17 12h4"/><circle cx="12" cy="12" r="4"/><path d="M12 3v4"/><path d="M12 17v4"/></I>;
+const VecIcon      = () => <I><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="12" cy="12" r="2"/><path d="M6 8v8M18 8v8M8 6h8M8 18h8"/></I>;
+const StorageIcon  = () => <I><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.01M7 17h.01"/></I>;
+const McpIcon      = () => <I><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></I>;
+const TeamIcon     = () => <I><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M14 19c0-2 2-3.5 4-3.5"/></I>;
+const SqlIcon      = () => <I><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></I>;
+const RealtimeIcon = () => <I><circle cx="12" cy="12" r="2"/><path d="M16 8a6 6 0 010 8M8 8a6 6 0 000 8M19 5a10 10 0 010 14M5 5a10 10 0 000 14"/></I>;
 
 function Row({ label, mneme, others, raw }: { label: string; mneme: string; others: string; raw: string }) {
   return (

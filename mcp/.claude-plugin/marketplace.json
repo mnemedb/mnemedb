@@ -11,7 +11,7 @@
     {
       "name": "mneme",
       "description": "Give your agent its own Postgres schema, vector search, raw SQL, and wallet-bound storage on Base. 15 tools: create tables at runtime, insert/list/update/delete rows with WHERE filters, full SQL escape hatch, KNN vector search, file upload/list/delete, presigned URLs, on-chain $MNEME burn for storage quota.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "source": {
         "source": "npm",
         "package": "mneme-mcp"

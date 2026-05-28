@@ -16,7 +16,7 @@
     },
     "cli": {
       "name": "mneme-cli",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "bin": {
         "mneme": "./dist/index.js",
       },
@@ -75,13 +75,13 @@
     },
     "mcp": {
       "name": "mneme-mcp",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "bin": {
         "mneme-mcp": "./dist/index.js",
       },
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.0.0",
-        "mneme-sdk": "^0.3.0",
+        "mneme-sdk": "workspace:*",
         "viem": "^2.21.0",
         "zod": "^3.23.0",
       },
@@ -2311,8 +2311,6 @@
     "micro-eth-signer/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
 
     "micromatch/picomatch": ["picomatch@2.3.2", "", {}, "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="],
-
-    "mneme-mcp/mneme-sdk": ["mneme-sdk@0.3.0", "", { "peerDependencies": { "viem": "^2.21.0" } }, "sha512-ERb/iSdhmUfZFaZA9BITvknSn/EZH2QIcWJkFgY2MvQBlAs86P3j2JF3kWR3ieD+a/9/D0EaLQodWTa89p+zUQ=="],
 
     "mocha/chokidar": ["chokidar@3.6.0", "", { "dependencies": { "anymatch": "~3.1.2", "braces": "~3.0.2", "glob-parent": "~5.1.2", "is-binary-path": "~2.1.0", "is-glob": "~4.0.1", "normalize-path": "~3.0.0", "readdirp": "~3.6.0" }, "optionalDependencies": { "fsevents": "~2.3.2" } }, "sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw=="],
 

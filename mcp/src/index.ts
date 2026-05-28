@@ -5,17 +5,30 @@ import { z } from "zod";
 import { privateKeyToAccount } from "viem/accounts";
 import { Mneme, COLUMN_TYPES } from "mneme-sdk";
 
+// Two auth modes — pick whichever the user provides:
+//   MNEME_API_KEY            — service-account key (mneme_sk_…) from the dashboard
+//   MNEME_AGENT_PRIVATE_KEY  — raw wallet private key (legacy / power-user)
+//
+// API key path is preferred — easier to get (just paste from dashboard),
+// easier to revoke, safer (no wallet exposure in your shell history).
+const API_KEY     = process.env.MNEME_API_KEY;
 const PRIVATE_KEY = process.env.MNEME_AGENT_PRIVATE_KEY as `0x${string}` | undefined;
-if (!PRIVATE_KEY) {
-  console.error("MNEME_AGENT_PRIVATE_KEY is required");
+
+if (!API_KEY && !PRIVATE_KEY) {
+  console.error("Either MNEME_API_KEY (preferred) or MNEME_AGENT_PRIVATE_KEY is required");
+  console.error("Get an API key at https://mnemedb.dev → API keys → Create with scope '*'");
   process.exit(1);
 }
 
-const mneme = new Mneme({
-  account:    privateKeyToAccount(PRIVATE_KEY),
-  gatewayUrl: process.env.MNEME_GATEWAY_URL ?? "https://gateway.mnemedb.dev",
-  chainId:    Number(process.env.MNEME_CHAIN_ID ?? 8453),
-});
+const gatewayUrl = process.env.MNEME_GATEWAY_URL ?? "https://gateway.mnemedb.dev";
+
+const mneme = API_KEY
+  ? new Mneme({ apiKey: API_KEY, gatewayUrl })
+  : new Mneme({
+      account: privateKeyToAccount(PRIVATE_KEY!),
+      gatewayUrl,
+      chainId: Number(process.env.MNEME_CHAIN_ID ?? 8453),
+    });
 
 const ColumnSchema = z.object({
   name:       z.string(),

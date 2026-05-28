@@ -119,6 +119,17 @@ export class Mneme {
   }
 
   /**
+   * Natural-language → SQL via the gateway's LLM proxy.
+   * Use the returned SQL with `m.sql(...)` to execute it.
+   */
+  llm = {
+    sql: (args: { prompt: string; schema?: string }) =>
+      this.request<{ sql: string; model: string; elapsed_ms: number }>(
+        "POST", "/v1/llm/sql", args,
+      ),
+  };
+
+  /**
    * Service-account API keys — for B2B2C integrators (e.g. Gitlawb) that
    * distribute scoped keys to end-users who don't have wallets.
    *

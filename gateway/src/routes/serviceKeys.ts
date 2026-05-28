@@ -43,9 +43,11 @@ route.post("/", async (c) => {
   catch { return c.json({ error: "invalid json" }, 400); }
 
   const scope = (body.scope ?? "").trim();
-  if (!scope || !isValidScope(scope)) {
+  // "*" is the admin/full-access wildcard, used by CLI tools and internal
+  // services that need unrestricted access to the owner's schema.
+  if (!scope || (scope !== "*" && !isValidScope(scope))) {
     return c.json({
-      error: "invalid 'scope' — must be lowercase ident matching ^[a-z][a-z0-9_]{0,62}$ (this is the table-name prefix the key may touch)",
+      error: 'invalid \'scope\' — must be lowercase ident matching ^[a-z][a-z0-9_]{0,62}$ (the table-name prefix the key may touch), OR "*" for a full-access admin key',
     }, 400);
   }
   const label    = typeof body.label === "string" ? body.label.slice(0, 100) : null;

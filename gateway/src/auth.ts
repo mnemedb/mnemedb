@@ -102,10 +102,16 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
 /**
  * Enforce scope on a table name when the request is API-key authed.
  * Returns null if allowed; an error object if blocked.
+ *
+ * Scope semantics:
+ *   undefined    — wallet/session auth, no restriction
+ *   "*"          — admin/wildcard key (CLI, full-access tools)
+ *   "<prefix>"   — restricted to tables matching the prefix
  */
 export function enforceApiKeyScope(scope: string | undefined, table: string): { error: string } | null {
-  if (!scope) return null;             // wallet/session auth — no scope restriction
-  if (table === scope) return null;     // exact match (e.g. scope = "memories", table = "memories")
+  if (!scope) return null;
+  if (scope === "*") return null;
+  if (table === scope) return null;
   if (table.startsWith(scope + "_")) return null;
   return {
     error: `api key scoped to "${scope}_*" cannot access table "${table}"`,

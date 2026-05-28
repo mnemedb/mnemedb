@@ -13,6 +13,7 @@ import { sessionsRoute } from "./routes/sessions";
 import { storageRoute } from "./routes/storage";
 import { sqlRoute } from "./routes/sql";
 import { serviceKeysRoute } from "./routes/serviceKeys";
+import { llmRoute } from "./routes/llm";
 
 const app = new Hono();
 
@@ -35,6 +36,7 @@ app.route("/v1/vector",      vectorRoute);
 app.route("/v1/storage",     storageRoute);
 app.route("/v1/sql",         sqlRoute);
 app.route("/v1/service/keys", serviceKeysRoute);
+app.route("/v1/llm",          llmRoute);
 app.route("/v1/stats",       statsRoute);
 app.route("/v1/projects/me", projectsMe);
 

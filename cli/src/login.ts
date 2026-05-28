@@ -30,11 +30,12 @@ export async function runLogin(): Promise<MnemeConfig> {
 
   const gatewayUrl = gatewayInput || DEFAULT_GATEWAY;
 
-  // Validate by hitting /v1/projects/me — works for both wallet + API-key auth
+  // Validate by hitting /v1/projects/me — works for both wallet + API-key auth.
+  // Endpoint returns { project: { handle, owner, schema_name } } — nested.
   const probe = new Mneme({ apiKey, gatewayUrl });
-  let project: { handle: string; owner_wallet: string };
+  let resp: { project: { handle: string; owner: string; schema_name: string } };
   try {
-    project = await probe.request<{ handle: string; owner_wallet: string }>(
+    resp = await probe.request<{ project: { handle: string; owner: string; schema_name: string } }>(
       "GET", "/v1/projects/me",
     );
   } catch (e) {
@@ -47,8 +48,8 @@ export async function runLogin(): Promise<MnemeConfig> {
   const cfg: MnemeConfig = {
     api_key:     apiKey,
     gateway_url: gatewayUrl,
-    handle:      project.handle,
-    wallet:      project.owner_wallet,
+    handle:      resp.project.handle,
+    wallet:      resp.project.owner,
   };
   await saveConfig(cfg);
 

@@ -1,6 +1,6 @@
 {
   "name": "mneme-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Terminal client for Mneme — agent-native Postgres on Base. Text-to-SQL via the gateway's LLM proxy. Pretty banner. Beautiful query results.",
   "type": "module",
   "bin": {

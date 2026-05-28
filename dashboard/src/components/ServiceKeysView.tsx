@@ -124,22 +124,56 @@ function CreateForm({ onCreate, pending }: { onCreate: (args: { scope: string; l
   const [scope, setScope]   = useState("");
   const [label, setLabel]   = useState("");
   const [rpm, setRpm]       = useState(1200);
-  const valid = /^[a-z][a-z0-9_]{0,62}$/.test(scope);
+  // "*" = full-access admin key (CLI tools, internal services).
+  // Otherwise must match the lowercase ident pattern.
+  const isWildcard = scope === "*";
+  const valid = isWildcard || /^[a-z][a-z0-9_]{0,62}$/.test(scope);
 
   return (
-    <div className="bg-ink-900 border border-ink-800 rounded-xl p-5 mb-6">
+    <div className="bg-ink-900 border border-ink-800 rounded-xl p-5 mb-6 space-y-4">
+      {/* Preset shortcuts */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-ink-500 mr-2">presets:</span>
+        <button
+          onClick={() => { setScope("*"); setLabel(label || "cli · full access"); }}
+          className={`px-3 py-1.5 rounded-lg border transition ${
+            isWildcard ? "border-gold-300 bg-gold-300/10 text-gold-300" : "border-ink-800 hover:border-gold-300/40 text-ink-300"
+          }`}
+          title="Unrestricted access to your entire schema (CLI tools, admin scripts)"
+        >
+          ★ Full access (CLI)
+        </button>
+        <button
+          onClick={() => { setScope("app_xyz"); }}
+          className="px-3 py-1.5 rounded-lg border border-ink-800 hover:border-gold-300/40 text-ink-300 transition"
+          title="Scoped to tables starting with app_xyz_"
+        >
+          Scoped (per-app)
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>
-          <label className="text-xs text-ink-400 mb-1 block">Scope (table-name prefix)</label>
+          <label className="text-xs text-ink-400 mb-1 block">
+            Scope <span className="text-ink-600">·</span>{" "}
+            {isWildcard
+              ? <span className="text-gold-300/90">full access (any table)</span>
+              : <span className="text-ink-500">table-name prefix</span>}
+          </label>
           <input
             value={scope}
             onChange={(e) => setScope(e.target.value)}
-            placeholder="app_xyz"
+            placeholder='app_xyz   or   *'
             className={`w-full bg-ink-950 border rounded-lg px-3 py-2 font-mono text-sm text-white outline-none ${
               scope === "" ? "border-ink-800" : valid ? "border-emerald-500/40" : "border-red-500/40"
             }`}
           />
-          <div className="text-[10px] text-ink-500 mt-1">lowercase ident — key can only touch tables starting with this</div>
+          <div className="text-[10px] text-ink-500 mt-1 leading-relaxed">
+            {isWildcard
+              ? <span className="text-gold-300/80">★ full access · use for CLI, admin scripts, internal tools</span>
+              : <>lowercase ident → key may touch tables starting with this prefix · use <code className="font-mono text-gold-300/80">*</code> for full access</>
+            }
+          </div>
         </div>
         <div>
           <label className="text-xs text-ink-400 mb-1 block">Label (optional)</label>
@@ -176,10 +210,15 @@ function CreateForm({ onCreate, pending }: { onCreate: (args: { scope: string; l
 
 function KeyRowCmp({ k, onRevoke }: { k: KeyRow; onRevoke: () => void }) {
   const fmt = (d: string | null) => d ? new Date(d).toLocaleString() : "—";
+  const isWildcard = k.scope === "*";
   return (
     <tr className={`border-t border-ink-900/60 ${k.revoked ? "opacity-40" : ""}`}>
       <td className="px-4 py-3 text-ink-200">{k.label ?? <span className="text-ink-500 italic">—</span>}</td>
-      <td className="px-4 py-3 font-mono text-gold-300/90">{k.scope}</td>
+      <td className="px-4 py-3 font-mono">
+        {isWildcard
+          ? <span className="inline-flex items-center gap-1 text-gold-300 bg-gold-300/10 border border-gold-300/30 rounded px-2 py-0.5 text-xs">★ full access</span>
+          : <span className="text-gold-300/90">{k.scope}</span>}
+      </td>
       <td className="px-4 py-3 font-mono text-xs text-ink-400">{k.key_prefix}…</td>
       <td className="px-4 py-3 font-mono text-xs text-ink-300">{k.rpm_limit}/min</td>
       <td className="px-4 py-3 text-xs text-ink-400">{fmt(k.last_used_at)}</td>

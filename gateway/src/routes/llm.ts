@@ -113,6 +113,120 @@ ${schemaContext}`;
   }
 });
 
+// ─── /v1/llm/chat ───────────────────────────────────────────────────────
+/**
+ * Free-form chat proxy — same fal.ai pipeline, but no SQL constraint.
+ * The model is told it lives inside the Mneme CLI and can answer:
+ *   - Mneme-specific questions (the user's schema is auto-attached)
+ *   - Base ecosystem questions (tokens, gas, protocols, etc.)
+ *   - General agent / data-engineering / code questions
+ *
+ * Body: { prompt: string, history?: Array<{role,content}> }
+ * Returns: { reply: string, model, elapsed_ms }
+ */
+interface ChatMsg { role: "user" | "assistant" | "system"; content: string }
+interface ChatBody { prompt?: string; history?: ChatMsg[] }
+
+const MAX_CHAT_CHARS = 12000;
+
+route.post("/chat", async (c) => {
+  if (!FAL_API_KEY) {
+    return c.json({ error: "llm not configured on this gateway" }, 503);
+  }
+
+  const project = c.get("project");
+  const ownSchema = project.schema_name;
+
+  let body: ChatBody;
+  try { body = JSON.parse(c.get("bodyText") || "{}"); }
+  catch { return c.json({ error: "invalid json" }, 400); }
+
+  const prompt = (body.prompt ?? "").trim();
+  if (!prompt) return c.json({ error: "missing 'prompt'" }, 400);
+  if (prompt.length > MAX_CHAT_CHARS) {
+    return c.json({ error: `prompt exceeds ${MAX_CHAT_CHARS} chars` }, 413);
+  }
+
+  const schemaContext = await buildSchemaContext(ownSchema);
+
+  const systemPrompt = `You are Mneme — an agent-native Postgres database on Base, embedded inside the user's terminal CLI.
+
+Personality: concise, technical, a little warm. You sound like a senior engineer who actually uses the thing you're explaining. No emojis unless the user uses them first. No "I'd be happy to help" filler.
+
+You can answer:
+- Mneme-specific questions (schema, SQL, vector search, storage burn, service keys, MCP setup)
+- Base ecosystem questions (tokens, gas, TVL, protocols, contracts, dexes)
+- General agent / data / code questions (Postgres, pgvector, embeddings, RAG, agent design)
+
+When the user wants to RUN SQL, tell them to either:
+  - just type the request in plain English (the CLI will translate it), or
+  - use /sql <raw query> to skip the LLM.
+
+When the user wants live Base data, point them at the slash command:
+  /price <token>   /gas   /trending   /new   /tvl   /wallet <addr>   /scan <addr>
+
+The user's current project schema is "${ownSchema}":
+${schemaContext}
+
+Reply in plain text (no markdown headers, minimal bullets). Keep it tight — terminal-friendly width (~72 cols). End answers when you've said the useful thing.`;
+
+  // Compact conversation into a single fal.ai prompt (openrouter/router is single-shot)
+  const convo = (body.history ?? [])
+    .filter((m) => m.role !== "system")
+    .slice(-6)   // keep last 6 turns for context, drop the rest
+    .map((m) => `${m.role === "user" ? "User" : "Mneme"}: ${m.content}`)
+    .join("\n\n");
+
+  const fullPrompt = convo
+    ? `${systemPrompt}\n\n${convo}\n\nUser: ${prompt}\n\nMneme:`
+    : `${systemPrompt}\n\nUser: ${prompt}\n\nMneme:`;
+
+  const startedAt = Date.now();
+  try {
+    const res = await fetch("https://fal.run/openrouter/router", {
+      method:  "POST",
+      headers: {
+        "content-type": "application/json",
+        "authorization": `Key ${FAL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        prompt:      fullPrompt,
+        model:       FAL_MODEL,
+        temperature: 0.6,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      return c.json({
+        error: `llm upstream error: ${res.status}`,
+        detail: errBody.slice(0, 500),
+      }, 502);
+    }
+
+    const json = await res.json() as { output?: string; text?: string; choices?: Array<{ message?: { content?: string } }> };
+    const raw =
+      json.output ??
+      json.text ??
+      json.choices?.[0]?.message?.content ??
+      "";
+
+    const reply = (raw as string).trim();
+    if (!reply) return c.json({ error: "llm returned empty reply", raw: json }, 502);
+
+    return c.json({
+      reply,
+      model:      FAL_MODEL,
+      elapsed_ms: Date.now() - startedAt,
+    });
+  } catch (e) {
+    return c.json({
+      error:      `llm request failed: ${(e as Error).message}`,
+      elapsed_ms: Date.now() - startedAt,
+    }, 502);
+  }
+});
+
 /** Build a compact text representation of the user's schema for LLM context. */
 async function buildSchemaContext(schema: string): Promise<string> {
   try {

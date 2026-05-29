@@ -127,6 +127,18 @@ export class Mneme {
       this.request<{ sql: string; model: string; elapsed_ms: number }>(
         "POST", "/v1/llm/sql", args,
       ),
+    /**
+     * Free-form chat with the Mneme assistant. Server-side LLM is told
+     * about your schema and Base ecosystem — useful for "what does this
+     * SQL do", "how do I do vector search", "what's pgvector", etc.
+     */
+    chat: (args: {
+      prompt:  string;
+      history?: Array<{ role: "user" | "assistant"; content: string }>;
+    }) =>
+      this.request<{ reply: string; model: string; elapsed_ms: number }>(
+        "POST", "/v1/llm/chat", args,
+      ),
   };
 
   /**

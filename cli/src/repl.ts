@@ -4,6 +4,9 @@ import type { MnemeConfig } from "./config";
 import { renderTable, renderSql, renderHelp } from "./render";
 import { renderMiniHeader } from "./banner";
 import { gold, goldSoft, ink, inkDim, ok, err, dim, marble } from "./theme";
+import { cmdPrice, cmdGas, cmdTrending, cmdNew, cmdTvl, cmdWallet, cmdScan } from "./base";
+
+type ChatTurn = { role: "user" | "assistant"; content: string };
 
 export async function runRepl(cfg: MnemeConfig): Promise<void> {
   const m = new Mneme({ apiKey: cfg.api_key, gatewayUrl: cfg.gateway_url });
@@ -11,6 +14,7 @@ export async function runRepl(cfg: MnemeConfig): Promise<void> {
   rl.setPrompt(`  ${gold("›")} `);
 
   let lastMs: number | undefined;
+  const chatHistory: ChatTurn[] = [];
 
   const printHeader = () => {
     console.log("");
@@ -18,7 +22,7 @@ export async function runRepl(cfg: MnemeConfig): Promise<void> {
   };
 
   printHeader();
-  console.log(`  ${inkDim("type")} ${dim("/help")} ${inkDim("for commands, or ask anything in plain english")}`);
+  console.log(`  ${inkDim("type")} ${dim("/help")} ${inkDim("for commands, or ask in plain english — try")} ${dim("/chat")} ${inkDim("or")} ${dim("/price degen")}`);
   rl.prompt();
 
   rl.on("line", async (raw) => {
@@ -27,19 +31,19 @@ export async function runRepl(cfg: MnemeConfig): Promise<void> {
 
     // Slash commands
     if (input.startsWith("/")) {
-      const handled = await handleSlash(m, cfg, input);
+      const handled = await handleSlash(m, cfg, input, chatHistory);
       if (handled === "exit") { rl.close(); return; }
       printHeader();
       rl.prompt();
       return;
     }
 
-    // Natural language → SQL → execute
+    // Natural language → SQL → execute (default behavior)
     const t0 = Date.now();
     try {
       process.stdout.write(`  ${dim("thinking…")}`);
       const llm = await m.llm.sql({ prompt: input });
-      process.stdout.write("\r" + " ".repeat(20) + "\r");   // clear "thinking…"
+      process.stdout.write("\r" + " ".repeat(20) + "\r");
 
       console.log(`  ${ink("─".repeat(60))}`);
       console.log(`  ${renderSql(llm.sql)}`);
@@ -61,6 +65,7 @@ export async function runRepl(cfg: MnemeConfig): Promise<void> {
       process.stdout.write("\r" + " ".repeat(20) + "\r");
       const msg = e instanceof MnemeError ? `[${e.status}] ${e.message}` : (e as Error).message;
       console.log(`  ${err("✗")} ${msg}`);
+      console.log(`  ${inkDim("hint: not a SQL question? try")} ${dim("/chat " + input.slice(0, 40))}${inkDim(input.length > 40 ? "…" : "")}`);
     }
 
     printHeader();
@@ -74,57 +79,54 @@ export async function runRepl(cfg: MnemeConfig): Promise<void> {
   });
 }
 
-async function handleSlash(m: Mneme, cfg: MnemeConfig, input: string): Promise<"exit" | "ok"> {
+async function handleSlash(
+  m: Mneme,
+  cfg: MnemeConfig,
+  input: string,
+  chatHistory: ChatTurn[],
+): Promise<"exit" | "ok"> {
   const [cmd, ...rest] = input.slice(1).split(" ");
   const arg = rest.join(" ").trim();
 
-  switch (cmd) {
-    case "help": {
-      console.log(renderHelp());
-      return "ok";
-    }
-    case "exit":
-    case "quit":
-      return "exit";
+  try {
+    switch (cmd) {
+      case "help":
+        console.log(renderHelp());
+        return "ok";
 
-    case "clear":
-      process.stdout.write("\x1Bc");
-      return "ok";
+      case "exit":
+      case "quit":
+        return "exit";
 
-    case "whoami": {
-      console.log("");
-      console.log(`  ${ink("handle")}   ${gold(cfg.handle ?? "—")}`);
-      console.log(`  ${ink("wallet")}   ${marble(cfg.wallet ?? "—")}`);
-      console.log(`  ${ink("gateway")}  ${marble(cfg.gateway_url)}`);
-      console.log("");
-      return "ok";
-    }
+      case "clear":
+        process.stdout.write("\x1Bc");
+        return "ok";
 
-    case "tables": {
-      try {
+      case "whoami":
+        console.log("");
+        console.log(`  ${ink("handle")}   ${gold(cfg.handle ?? "—")}`);
+        console.log(`  ${ink("wallet")}   ${marble(cfg.wallet ?? "—")}`);
+        console.log(`  ${ink("gateway")}  ${marble(cfg.gateway_url)}`);
+        console.log("");
+        return "ok";
+
+      case "tables": {
         const r = await m.listTables();
         console.log("");
         console.log(renderTable(
           r.tables.map((t) => ({
-            name:      t.name,
-            kind:      t.isDefault ? "default" : "custom",
-            rows:      t.rowCount,
-            columns:   t.columns.length,
+            name:    t.name,
+            kind:    t.isDefault ? "default" : "custom",
+            rows:    t.rowCount,
+            columns: t.columns.length,
           })),
           ["name", "kind", "rows", "columns"],
         ));
-      } catch (e) {
-        console.log(`  ${err("✗")} ${(e as Error).message}`);
-      }
-      return "ok";
-    }
-
-    case "schema": {
-      if (!arg) {
-        console.log(`  ${err("✗")} usage: /schema <table_name>`);
         return "ok";
       }
-      try {
+
+      case "schema": {
+        if (!arg) { console.log(`  ${err("✗")} usage: /schema <table_name>`); return "ok"; }
         const r = await m.sql(`
           SELECT column_name, data_type, is_nullable
           FROM information_schema.columns
@@ -133,18 +135,11 @@ async function handleSlash(m: Mneme, cfg: MnemeConfig, input: string): Promise<"
         `);
         console.log("");
         console.log(renderTable(r.rows as Record<string, unknown>[], r.columns));
-      } catch (e) {
-        console.log(`  ${err("✗")} ${(e as Error).message}`);
-      }
-      return "ok";
-    }
-
-    case "sql": {
-      if (!arg) {
-        console.log(`  ${err("✗")} usage: /sql <raw query>`);
         return "ok";
       }
-      try {
+
+      case "sql": {
+        if (!arg) { console.log(`  ${err("✗")} usage: /sql <raw query>`); return "ok"; }
         const r = await m.sql(arg);
         console.log("");
         if (r.row_count === 0) {
@@ -153,14 +148,10 @@ async function handleSlash(m: Mneme, cfg: MnemeConfig, input: string): Promise<"
           console.log(renderTable(r.rows as Record<string, unknown>[], r.columns));
           console.log(`  ${ok("✓")} ${inkDim(`${r.row_count} rows · ${r.elapsed_ms}ms`)}`);
         }
-      } catch (e) {
-        console.log(`  ${err("✗")} ${(e as Error).message}`);
+        return "ok";
       }
-      return "ok";
-    }
 
-    case "quota": {
-      try {
+      case "quota": {
         const q = await m.storage.quota();
         console.log("");
         console.log(`  ${ink("used")}        ${marble(fmtBytes(q.bytes_used))} ${ink("/")} ${gold(fmtBytes(q.bytes_limit))}`);
@@ -170,16 +161,51 @@ async function handleSlash(m: Mneme, cfg: MnemeConfig, input: string): Promise<"
           console.log(`  ${ink("bonus until")} ${goldSoft(new Date(q.bonus_expires_at).toLocaleString())}`);
         }
         console.log("");
-      } catch (e) {
-        console.log(`  ${err("✗")} ${(e as Error).message}`);
+        return "ok";
       }
-      return "ok";
-    }
 
-    default:
-      console.log(`  ${err("✗")} unknown command: /${cmd}`);
-      console.log(`     ${inkDim("type /help to see all commands")}`);
-      return "ok";
+      // ─── New: /chat ────────────────────────────────────────────────
+      case "chat":
+      case "ask":
+      case "ai": {
+        if (!arg) { console.log(`  ${err("✗")} usage: /chat <message>`); return "ok"; }
+        const t0 = Date.now();
+        process.stdout.write(`  ${dim("thinking…")}`);
+        const r = await m.llm.chat({ prompt: arg, history: chatHistory });
+        process.stdout.write("\r" + " ".repeat(20) + "\r");
+        console.log("");
+        console.log(`  ${gold("◆")} ${marble(r.reply.split("\n").join("\n    "))}`);
+        console.log("");
+        console.log(`  ${inkDim(`${r.model.split("/").pop()} · ${Date.now() - t0}ms`)}`);
+        chatHistory.push({ role: "user", content: arg });
+        chatHistory.push({ role: "assistant", content: r.reply });
+        if (chatHistory.length > 12) chatHistory.splice(0, chatHistory.length - 12);
+        return "ok";
+      }
+
+      case "reset":
+        chatHistory.length = 0;
+        console.log(`  ${ok("✓")} ${inkDim("chat history cleared")}`);
+        return "ok";
+
+      // ─── New: Base ecosystem ────────────────────────────────────────
+      case "price":   console.log(await cmdPrice(arg));    return "ok";
+      case "gas":     console.log(await cmdGas());          return "ok";
+      case "trending":console.log(await cmdTrending());     return "ok";
+      case "new":     console.log(await cmdNew());          return "ok";
+      case "tvl":     console.log(await cmdTvl());          return "ok";
+      case "wallet":  console.log(await cmdWallet(arg));    return "ok";
+      case "scan":    console.log(await cmdScan(arg));      return "ok";
+
+      default:
+        console.log(`  ${err("✗")} unknown command: /${cmd}`);
+        console.log(`     ${inkDim("type /help to see all commands")}`);
+        return "ok";
+    }
+  } catch (e) {
+    const msg = e instanceof MnemeError ? `[${e.status}] ${e.message}` : (e as Error).message;
+    console.log(`  ${err("✗")} ${msg}`);
+    return "ok";
   }
 }
 

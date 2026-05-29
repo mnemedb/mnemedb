@@ -1,4 +1,4 @@
-import { gold, goldSoft, ink, inkDim, marble, dim } from "./theme";
+import { gold, goldSoft, ink, inkDim, marble, dim, ok, err } from "./theme";
 
 const MAX_CELL_WIDTH    = 48;
 const MAX_VISIBLE_ROWS  = 50;
@@ -32,10 +32,11 @@ export function renderTable(rows: Record<string, unknown>[], columns?: string[])
 
   const body = display.map((row) =>
     "│" + cols.map((c) => {
-      const v = fmtCell(row[c]);
+      const raw = row[c];
+      const v = fmtCell(raw);
       const truncated = v.length > MAX_CELL_WIDTH;
-      const cell = (truncated ? v.slice(0, MAX_CELL_WIDTH - 1) + "…" : v).padEnd(widths[c]!);
-      return ` ${marble(cell)} `;
+      const padded = (truncated ? v.slice(0, MAX_CELL_WIDTH - 1) + "…" : v).padEnd(widths[c]!);
+      return ` ${colorizeCell(c, raw, padded)} `;
     }).join("│") + "│"
   ).join("\n");
 
@@ -52,7 +53,19 @@ function fmtCell(v: unknown): string {
     const s = JSON.stringify(v);
     return s.length > MAX_CELL_WIDTH ? s.slice(0, MAX_CELL_WIDTH - 1) + "…" : s;
   }
+  if (typeof v === "number") {
+    // Format percent-ish columns nicely
+    return Number.isInteger(v) ? String(v) : v.toFixed(2);
+  }
   return String(v);
+}
+
+/** Color percent-change columns red/gold/green based on the raw value. */
+function colorizeCell(col: string, raw: unknown, padded: string): string {
+  if (typeof raw === "number" && /change|24h|delta|pct|%/i.test(col)) {
+    return raw > 0 ? ok(padded) : raw < 0 ? err(padded) : marble(padded);
+  }
+  return marble(padded);
 }
 
 /** Render generated SQL with subtle syntax coloring of common keywords. */
@@ -66,25 +79,39 @@ export function renderError(msg: string): string {
 }
 
 export function renderHelp(): string {
-  const tip = (k: string, v: string) => `  ${gold(k.padEnd(14))} ${ink(v)}`;
+  const tip = (k: string, v: string) => `  ${gold(k.padEnd(18))} ${ink(v)}`;
   return [
     "",
-    `  ${goldSoft("commands")}`,
-    tip("/tables",   "list every table in your schema"),
-    tip("/schema X", "show columns of table X"),
-    tip("/sql Y",    "skip the LLM and run raw SQL Y directly"),
-    tip("/quota",    "current storage quota + recent usage"),
-    tip("/whoami",   "show your handle, wallet, gateway"),
-    tip("/clear",    "clear the terminal"),
-    tip("/help",     "this list"),
-    tip("/exit",     "quit (also: Ctrl+D)"),
+    `  ${goldSoft("database")}`,
+    tip("/tables",       "list every table in your schema"),
+    tip("/schema X",     "show columns of table X"),
+    tip("/sql Y",        "skip the LLM and run raw SQL Y directly"),
+    tip("/quota",        "current storage quota + recent usage"),
     "",
-    `  ${goldSoft("anything else")}`,
-    `  ${ink("→ treated as natural language → translated to SQL → executed")}`,
-    `  ${ink("  examples:")}`,
+    `  ${goldSoft("chat")}`,
+    tip("/chat <msg>",   "ask Mneme anything — schema-aware Claude"),
+    tip("/reset",        "clear chat history"),
+    "",
+    `  ${goldSoft("base ecosystem")}`,
+    tip("/price <tok>",  "token price + 24h + mcap + liquidity (dexscreener)"),
+    tip("/gas",          "current Base gas price + cost estimates"),
+    tip("/trending",     "top boosted Base tokens"),
+    tip("/new",          "newest Base token launches (last 24h)"),
+    tip("/tvl",          "Base chain TVL + top protocols (defillama)"),
+    tip("/wallet <addr>","ETH balance + EOA/contract status"),
+    tip("/scan <addr>",  "on-chain summary (wallet or token)"),
+    "",
+    `  ${goldSoft("session")}`,
+    tip("/whoami",       "show your handle, wallet, gateway"),
+    tip("/clear",        "clear the terminal"),
+    tip("/help",         "this list"),
+    tip("/exit",         "quit (also: Ctrl+D)"),
+    "",
+    `  ${goldSoft("plain english (no slash)")}`,
+    `  ${ink("→ translated to SQL and executed against your schema")}`,
     `  ${dim('  "show me my 10 most recent memories"')}`,
     `  ${dim('  "count books grouped by author"')}`,
-    `  ${dim('  "create a table called todos with title and done columns"')}`,
+    `  ${dim('  "create a table todos with title and done"')}`,
     "",
   ].join("\n");
 }

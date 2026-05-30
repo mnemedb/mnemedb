@@ -9,6 +9,7 @@ import { StorageView } from "./components/StorageView";
 import { SqlEditor } from "./components/SqlEditor";
 import { ServiceKeysView } from "./components/ServiceKeysView";
 import { Docs } from "./components/Docs";
+import { Buy } from "./components/Buy";
 import { SettingsView } from "./components/SettingsView";
 import { useSession } from "./lib/session";
 import { useProjectMe } from "./lib/project";
@@ -19,6 +20,11 @@ export function App() {
   // Docs route — public, no auth needed
   if (typeof window !== "undefined" && window.location.pathname.startsWith("/docs")) {
     return <Docs />;
+  }
+
+  // Buy route — public, Qwerti widget auto-opens via script tag in buy/index.html
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/buy")) {
+    return <Buy />;
   }
 
   const { ready, authenticated } = usePrivy();

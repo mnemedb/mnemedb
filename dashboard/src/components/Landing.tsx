@@ -40,6 +40,12 @@ export function Landing() {
           >
             GitHub
           </a>
+          <a
+            href="/buy"
+            className="hidden sm:inline px-3 py-1.5 rounded-lg border border-gold-300/40 text-gold-300 hover:bg-gold-300/10 hover:border-gold-300/70 transition text-sm font-medium"
+          >
+            Buy $MNEME
+          </a>
           <button
             onClick={signIn}
             className="px-4 py-1.5 rounded-lg bg-white text-black hover:bg-marble-100 transition text-sm font-medium"
@@ -679,6 +685,14 @@ function AnnouncementBar() {
               {copied ? <CheckIcon /> : <CopyIcon />}
             </button>
           </span>
+
+          {/* Buy link — Qwerti-powered checkout (auto-opens widget on /buy) */}
+          <a
+            href="/buy"
+            className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gold-300/15 hover:bg-gold-300/25 border border-gold-300/30 hover:border-gold-300/60 text-gold-300 text-[11px] font-medium transition shrink-0"
+          >
+            Buy →
+          </a>
         </div>
         <button
           onClick={() => { localStorage.setItem(KEY, "1"); setDismissed(true); }}

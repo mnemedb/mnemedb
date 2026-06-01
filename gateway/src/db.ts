@@ -139,6 +139,38 @@ export async function initDb() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS _mneme_api_keys_owner_idx ON _mneme_api_keys (owner_wallet) WHERE revoked_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS _mneme_api_keys_hash_idx  ON _mneme_api_keys (key_hash) WHERE revoked_at IS NULL`;
+
+  // ─── Chain streams (Mneme Live) ─────────────────────────────────────────
+  // Live Base events → user schemas. Each row is a subscription: when the
+  // worker sees a matching event onchain it INSERTs a row into the
+  // project's <target_table>. Lets agents query the chain like a local DB.
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_streams (
+      id              bigserial PRIMARY KEY,
+      project_id      bigint NOT NULL REFERENCES _mneme_projects(id) ON DELETE CASCADE,
+      contract        text   NOT NULL,            -- lowercased 0x...
+      topic0          text   NOT NULL,            -- keccak256 of event signature
+      event_signature text   NOT NULL,            -- "Transfer(address,address,uint256)"
+      event_name      text   NOT NULL,            -- "Transfer"
+      abi_inputs      jsonb  NOT NULL,            -- [{name,type,indexed}]
+      target_table    text   NOT NULL,            -- user-schema table name
+      last_block      bigint NOT NULL DEFAULT 0,
+      active          boolean NOT NULL DEFAULT true,
+      label           text,
+      created_at      timestamptz DEFAULT now(),
+      UNIQUE (project_id, contract, topic0, target_table)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_streams_active_idx ON _mneme_streams (active, contract) WHERE active = true`;
+
+  // Single-row cursor per chain — the highest block the poller has scanned.
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_chain_cursor (
+      chain_id    bigint PRIMARY KEY,
+      last_block  bigint NOT NULL DEFAULT 0,
+      updated_at  timestamptz DEFAULT now()
+    )
+  `;
 }
 
 // ─── API key helpers ────────────────────────────────────────────────────

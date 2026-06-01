@@ -142,6 +142,62 @@ export class Mneme {
   };
 
   /**
+   * Mneme Live — chain stream subscriptions.
+   *
+   * Subscribe to any Base contract + event → matching events get inserted
+   * into a table in your schema in near-real-time (~6s latency, polling).
+   *
+   * @example
+   * await m.streams.watch({
+   *   contract:     "0x3FcDbEBD5e7BaB79477cFDcA2CDCF6e904C27b07",
+   *   event:        "transfer",                    // or raw "Transfer(address,address,uint256)"
+   *   target_table: "mneme_transfers",
+   * });
+   * // …a few seconds later:
+   * await m.sql("SELECT * FROM mneme_transfers ORDER BY block_ts DESC LIMIT 10");
+   */
+  readonly streams = {
+    /** Create a subscription. Auto-creates target_table if missing. */
+    watch: (args: {
+      contract:     string;
+      event:        string;             // template alias OR raw event signature
+      target_table: string;
+      label?:       string;
+    }) =>
+      this.request<{
+        ok:              true;
+        id:              number;
+        contract:        string;
+        event_signature: string;
+        event_name:      string;
+        topic0:          string;
+        target_table:    string;
+        created_at:      string;
+        note:            string;
+      }>("POST", "/v1/streams", args),
+
+    /** List all subscriptions on this project. */
+    list: () =>
+      this.request<{
+        streams: Array<{
+          id:              number;
+          contract:        string;
+          event_signature: string;
+          event_name:      string;
+          target_table:    string;
+          active:          boolean;
+          label:           string | null;
+          last_block:      number;
+          created_at:      string;
+        }>;
+      }>("GET", "/v1/streams"),
+
+    /** Pause a subscription. Target table is kept; no more inserts. */
+    unwatch: (id: number) =>
+      this.request<{ ok: true; id: number; note: string }>("DELETE", `/v1/streams/${id}`),
+  };
+
+  /**
    * Service-account API keys — for B2B2C integrators (e.g. Gitlawb) that
    * distribute scoped keys to end-users who don't have wallets.
    *

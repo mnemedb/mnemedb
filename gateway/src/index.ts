@@ -14,6 +14,8 @@ import { storageRoute } from "./routes/storage";
 import { sqlRoute } from "./routes/sql";
 import { serviceKeysRoute } from "./routes/serviceKeys";
 import { llmRoute } from "./routes/llm";
+import { streamsRoute } from "./routes/streams";
+import { startChainStreamsWorker } from "./worker/chainStreams";
 
 const app = new Hono();
 
@@ -37,10 +39,14 @@ app.route("/v1/storage",     storageRoute);
 app.route("/v1/sql",         sqlRoute);
 app.route("/v1/service/keys", serviceKeysRoute);
 app.route("/v1/llm",          llmRoute);
+app.route("/v1/streams",      streamsRoute);
 app.route("/v1/stats",       statsRoute);
 app.route("/v1/projects/me", projectsMe);
 
 await initDb();
+
+// Mneme Live · chain-streams worker (polls Base, writes events into user schemas)
+startChainStreamsWorker();
 
 const port = Number(process.env.PORT ?? 8787);
 console.log(`mneme-gateway listening on :${port}`);

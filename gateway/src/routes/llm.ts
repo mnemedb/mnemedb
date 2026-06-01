@@ -148,6 +148,7 @@ route.post("/chat", async (c) => {
   }
 
   const schemaContext = await buildSchemaContext(ownSchema);
+  const streamsContext = await buildStreamsContext(project.id);
 
   const systemPrompt = `You are Mneme — an agent-native Postgres database on Base, embedded inside the user's terminal CLI.
 
@@ -167,6 +168,7 @@ When the user wants live Base data, point them at the slash command:
 
 The user's current project schema is "${ownSchema}":
 ${schemaContext}
+${streamsContext}
 
 Reply in plain text (no markdown headers, minimal bullets). Keep it tight — terminal-friendly width (~72 cols). End answers when you've said the useful thing.`;
 
@@ -226,6 +228,27 @@ Reply in plain text (no markdown headers, minimal bullets). Keep it tight — te
     }, 502);
   }
 });
+
+/** Compact summary of any Mneme Live streams attached to this project. */
+async function buildStreamsContext(projectId: number): Promise<string> {
+  try {
+    const rows = await pg<Array<{
+      target_table: string; event_name: string; contract: string; active: boolean;
+    }>>`
+      SELECT target_table, event_name, contract, active
+      FROM _mneme_streams
+      WHERE project_id = ${projectId} AND active = true
+      ORDER BY target_table
+    `;
+    if (rows.length === 0) return "";
+    const lines = rows.map((r) =>
+      `  ${r.target_table} ← ${r.event_name} events from ${r.contract.slice(0, 10)}…`,
+    );
+    return `\nMneme Live streams (real-time chain → schema):\n${lines.join("\n")}`;
+  } catch {
+    return "";
+  }
+}
 
 /** Build a compact text representation of the user's schema for LLM context. */
 async function buildSchemaContext(schema: string): Promise<string> {

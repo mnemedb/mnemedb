@@ -197,6 +197,62 @@ async function handleSlash(
       case "wallet":  console.log(await cmdWallet(arg));    return "ok";
       case "scan":    console.log(await cmdScan(arg));      return "ok";
 
+      // ─── Mneme Live · chain streams ─────────────────────────────────
+      case "watch": {
+        // /watch <event> on <contract> into <table>
+        // /watch "Transfer(address,address,uint256)" on 0x... into transfers
+        const quoted = arg.match(/^"([^"]+)"\s+on\s+(0x[0-9a-fA-F]{40})\s+into\s+([a-z_][a-z0-9_]*)$/i);
+        const bare   = arg.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s+on\s+(0x[0-9a-fA-F]{40})\s+into\s+([a-z_][a-z0-9_]*)$/);
+        const match  = quoted || bare;
+        if (!match) {
+          console.log(`  ${err("✗")} usage: /watch <event> on <0xcontract> into <table>`);
+          console.log(`     ${inkDim('examples: /watch transfer on 0x3FcD…7b07 into mneme_transfers')}`);
+          console.log(`     ${inkDim('          /watch "Transfer(address,address,uint256)" on 0x... into transfers')}`);
+          return "ok";
+        }
+        const [, evt, contract, table] = match;
+        const r = await m.streams.watch({ contract: contract!, event: evt!, target_table: table! });
+        console.log("");
+        console.log(`  ${ok("✓")} ${marble(`stream #${r.id} active`)}`);
+        console.log(`  ${ink("event   ")} ${gold(r.event_name)} ${inkDim("·")} ${dim(r.event_signature)}`);
+        console.log(`  ${ink("contract")} ${marble(r.contract)}`);
+        console.log(`  ${ink("table   ")} ${goldSoft(r.target_table)} ${inkDim("(in your schema)")}`);
+        console.log(`  ${inkDim(r.note)}`);
+        return "ok";
+      }
+
+      case "streams": {
+        const r = await m.streams.list();
+        console.log("");
+        if (r.streams.length === 0) {
+          console.log(`  ${inkDim("no streams yet — try /watch transfer on <0x...> into <table>")}`);
+          return "ok";
+        }
+        console.log(renderTable(
+          r.streams.map((s) => ({
+            id:       s.id,
+            event:    s.event_name,
+            contract: s.contract.slice(0, 8) + "…" + s.contract.slice(-4),
+            table:    s.target_table,
+            active:   s.active ? "✓" : "—",
+            last_blk: s.last_block || "—",
+          })),
+          ["id", "event", "contract", "table", "active", "last_blk"],
+        ));
+        return "ok";
+      }
+
+      case "unwatch": {
+        const id = Number(arg);
+        if (!Number.isInteger(id) || id <= 0) {
+          console.log(`  ${err("✗")} usage: /unwatch <stream_id>   (run /streams to find the id)`);
+          return "ok";
+        }
+        const r = await m.streams.unwatch(id);
+        console.log(`  ${ok("✓")} ${inkDim(`stream #${r.id} paused — ${r.note}`)}`);
+        return "ok";
+      }
+
       default:
         console.log(`  ${err("✗")} unknown command: /${cmd}`);
         console.log(`     ${inkDim("type /help to see all commands")}`);

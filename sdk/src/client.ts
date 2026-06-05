@@ -142,6 +142,115 @@ export class Mneme {
   };
 
   /**
+   * Mneme Graph — entities + relations as first-class data.
+   *
+   * Solves pgvector's structural failure mode (similar keywords, divergent
+   * meaning) by making relationships traversable. Vector search still works
+   * via .semanticNeighbors which does vector seed → graph walk → ranked
+   * fan-out (find entities that ARE related but don't embed similarly to
+   * the query).
+   *
+   * Two default tables auto-provisioned per project:
+   *   entities(id, kind, name, properties jsonb, embedding vector(1536))
+   *   relations(id, src_id, dst_id, kind, weight, properties jsonb)
+   *
+   * @example
+   * await m.graph.addEntity({ kind: "person", name: "vitalik", properties: { wallet: "0xd8d…" }});
+   * await m.graph.addEntity({ kind: "token",  name: "MNEME" });
+   * await m.graph.addRelation({ src: "person:vitalik", dst: "token:MNEME", kind: "holds" });
+   * const fan = await m.graph.neighbors(1, { hops: 2 });
+   */
+  readonly graph = {
+    /** Upsert by (kind, name). Properties merge; embedding overwrites if provided. */
+    addEntity: (args: {
+      kind:        string;
+      name:        string;
+      properties?: Record<string, unknown>;
+      embedding?:  number[];
+    }) =>
+      this.request<{ ok: true; id: number; kind: string; name: string; created_at: string }>(
+        "POST", "/v1/graph/entities", args,
+      ),
+
+    /** Add an edge. `src` and `dst` accept entity ids OR "kind:name" refs. */
+    addRelation: (args: {
+      src:         number | string;
+      dst:         number | string;
+      kind:        string;
+      weight?:     number;
+      properties?: Record<string, unknown>;
+    }) =>
+      this.request<{ ok: true; id: number; src_id: number; dst_id: number; kind: string }>(
+        "POST", "/v1/graph/relations", args,
+      ),
+
+    /** List entities, filterable by kind / name LIKE. */
+    listEntities: (args?: { kind?: string; name_like?: string; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (args?.kind)      q.set("kind",      args.kind);
+      if (args?.name_like) q.set("name_like", args.name_like);
+      if (args?.limit)     q.set("limit",     String(args.limit));
+      return this.request<{
+        entities: Array<{ id: number; kind: string; name: string; properties: Record<string, unknown>; created_at: string }>;
+        count:    number;
+      }>("GET", `/v1/graph/entities${q.toString() ? `?${q}` : ""}`);
+    },
+
+    /** k-hop neighbors (1-5 hops, undirected). Optional edge-kind filter. */
+    neighbors: (id: number, opts?: { hops?: number; limit?: number; edge_kinds?: string[] }) => {
+      const q = new URLSearchParams();
+      if (opts?.hops)       q.set("hops",       String(opts.hops));
+      if (opts?.limit)      q.set("limit",      String(opts.limit));
+      if (opts?.edge_kinds) q.set("edge_kinds", opts.edge_kinds.join(","));
+      return this.request<{
+        root_id: number; hops: number; count: number;
+        neighbors: Array<{ id: number; kind: string; name: string; properties: Record<string, unknown>; hops: number }>;
+      }>("GET", `/v1/graph/neighbors/${id}${q.toString() ? `?${q}` : ""}`);
+    },
+
+    /** Shortest path between two entities (≤ max_hops). */
+    path: (src: number, dst: number, opts?: { max_hops?: number }) => {
+      const q = new URLSearchParams({ src: String(src), dst: String(dst) });
+      if (opts?.max_hops) q.set("max_hops", String(opts.max_hops));
+      return this.request<
+        | { found: false; src: number; dst: number; max_hops: number }
+        | {
+            found: true; src: number; dst: number; hops: number;
+            path: Array<{ id: number; kind: string; name: string }>;
+          }
+      >("GET", `/v1/graph/path?${q}`);
+    },
+
+    /**
+     * Hybrid retrieval — pgvector finds K seed entities by embedding
+     * similarity, then we walk the graph N hops out. Each reached entity
+     * scores as MAX(vector_sim × decay^hops). Returns top-`limit` by score.
+     *
+     * This is the answer to "pgvector breaks when keyword similarity
+     * overlaps but semantic meaning diverges" — we don't trust the vector
+     * alone, we use it to find footholds and then traverse the graph.
+     */
+    semanticNeighbors: (args: {
+      embedding: number[];
+      seed_k?:   number;
+      hops?:     number;
+      decay?:    number;
+      limit?:    number;
+      kind?:     string;
+    }) =>
+      this.request<{
+        seed_k: number; hops: number; decay: number; count: number;
+        matches: Array<{ id: number; kind: string; name: string; properties: Record<string, unknown>; score: number }>;
+      }>("POST", "/v1/graph/semantic-neighbors", args),
+
+    /** Delete an entity (cascades to all attached relations). */
+    deleteEntity:   (id: number) =>
+      this.request<{ ok: true; id: number }>("DELETE", `/v1/graph/entities/${id}`),
+    deleteRelation: (id: number) =>
+      this.request<{ ok: true; id: number }>("DELETE", `/v1/graph/relations/${id}`),
+  };
+
+  /**
    * Mneme Live — chain stream subscriptions.
    *
    * Subscribe to any Base contract + event → matching events get inserted

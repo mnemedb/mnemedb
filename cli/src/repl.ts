@@ -253,6 +253,116 @@ async function handleSlash(
         return "ok";
       }
 
+      // ─── Mneme Graph · entities + relations ─────────────────────────
+      case "entity": {
+        // /entity add <kind> <name> [json-props]
+        // /entity list [kind] [name_like]
+        const [sub, ...rest2] = arg.split(/\s+/);
+        const tail = rest2.join(" ");
+        if (sub === "add") {
+          const m1 = tail.match(/^(\S+)\s+("(?:[^"]+)"|\S+)(?:\s+(\{.*\}))?$/);
+          if (!m1) {
+            console.log(`  ${err("✗")} usage: /entity add <kind> "<name>" [{json props}]`);
+            return "ok";
+          }
+          const [, kind, nameRaw, propsStr] = m1;
+          const name  = nameRaw!.replace(/^"|"$/g, "");
+          const props = propsStr ? JSON.parse(propsStr) : undefined;
+          const r = await m.graph.addEntity({ kind: kind!, name, properties: props });
+          console.log(`  ${ok("✓")} ${inkDim("entity")} ${gold("#" + r.id)} ${goldSoft(r.kind + ":" + r.name)}`);
+          return "ok";
+        }
+        if (sub === "list" || sub === undefined || sub === "") {
+          const [kindArg, ...nameToks] = rest2;
+          const r = await m.graph.listEntities({
+            kind:      kindArg,
+            name_like: nameToks.join(" ") || undefined,
+            limit:     50,
+          });
+          console.log("");
+          if (r.count === 0) {
+            console.log(`  ${inkDim("(no entities yet — try /entity add person vitalik)")}`);
+            return "ok";
+          }
+          console.log(renderTable(
+            r.entities.map((e) => ({ id: e.id, kind: e.kind, name: e.name })),
+            ["id", "kind", "name"],
+          ));
+          return "ok";
+        }
+        if (sub === "rm" || sub === "delete") {
+          const id = Number(rest2[0]);
+          if (!id) { console.log(`  ${err("✗")} usage: /entity rm <id>`); return "ok"; }
+          await m.graph.deleteEntity(id);
+          console.log(`  ${ok("✓")} ${inkDim(`entity #${id} deleted (cascaded relations gone)`)}`);
+          return "ok";
+        }
+        console.log(`  ${err("✗")} usage: /entity {add|list|rm}`);
+        return "ok";
+      }
+
+      case "relate": {
+        // /relate <src_ref> <kind> <dst_ref> [{json props}]
+        // refs are either numeric ids or "kind:name"
+        const m1 = arg.match(/^(\S+)\s+(\S+)\s+(\S+)(?:\s+(\{.*\}))?$/);
+        if (!m1) {
+          console.log(`  ${err("✗")} usage: /relate <src> <kind> <dst> [{json props}]`);
+          console.log(`     ${inkDim('refs: numeric id (3) or "kind:name" ("person:vitalik")')}`);
+          return "ok";
+        }
+        const [, src, kind, dst, propsStr] = m1;
+        const props = propsStr ? JSON.parse(propsStr) : undefined;
+        const srcRef = /^\d+$/.test(src!) ? Number(src) : src!;
+        const dstRef = /^\d+$/.test(dst!) ? Number(dst) : dst!;
+        const r = await m.graph.addRelation({ src: srcRef, dst: dstRef, kind: kind!, properties: props });
+        console.log(`  ${ok("✓")} ${inkDim("edge")} ${gold("#" + r.id)} ${marble(`${src} ─[${kind}]→ ${dst}`)}`);
+        return "ok";
+      }
+
+      case "neighbors": {
+        // /neighbors <id> [hops=N]
+        const m1 = arg.match(/^(\d+)(?:\s+hops=(\d+))?(?:\s+kinds=(\S+))?$/);
+        if (!m1) {
+          console.log(`  ${err("✗")} usage: /neighbors <id> [hops=N] [kinds=k1,k2]`);
+          return "ok";
+        }
+        const id    = Number(m1[1]);
+        const hops  = m1[2] ? Number(m1[2]) : 1;
+        const kinds = m1[3] ? m1[3].split(",") : undefined;
+        const r = await m.graph.neighbors(id, { hops, edge_kinds: kinds });
+        console.log("");
+        if (r.count === 0) {
+          console.log(`  ${inkDim(`no neighbors within ${hops} hop(s)`)}`);
+          return "ok";
+        }
+        console.log(renderTable(
+          r.neighbors.map((n) => ({ id: n.id, kind: n.kind, name: n.name, hops: n.hops })),
+          ["id", "kind", "name", "hops"],
+        ));
+        return "ok";
+      }
+
+      case "path": {
+        const m1 = arg.match(/^(\d+)\s+(\d+)(?:\s+max=(\d+))?$/);
+        if (!m1) {
+          console.log(`  ${err("✗")} usage: /path <src_id> <dst_id> [max=N]`);
+          return "ok";
+        }
+        const src = Number(m1[1]);
+        const dst = Number(m1[2]);
+        const max = m1[3] ? Number(m1[3]) : 4;
+        const r = await m.graph.path(src, dst, { max_hops: max });
+        console.log("");
+        if (!r.found) {
+          console.log(`  ${inkDim(`no path ${src} → ${dst} within ${max} hops`)}`);
+          return "ok";
+        }
+        console.log(`  ${ok("✓")} ${inkDim(`path found · ${r.hops} hop(s)`)}`);
+        const chain = r.path.map((n) => `${goldSoft(n!.kind)}:${marble(n!.name)}`).join(`  ${ink("→")}  `);
+        console.log(`  ${chain}`);
+        return "ok";
+      }
+
       default:
         console.log(`  ${err("✗")} unknown command: /${cmd}`);
         console.log(`     ${inkDim("type /help to see all commands")}`);

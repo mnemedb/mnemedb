@@ -15,6 +15,7 @@ import { sqlRoute } from "./routes/sql";
 import { serviceKeysRoute } from "./routes/serviceKeys";
 import { llmRoute } from "./routes/llm";
 import { streamsRoute } from "./routes/streams";
+import { graphRoute } from "./routes/graph";
 import { startChainStreamsWorker } from "./worker/chainStreams";
 
 const app = new Hono();
@@ -40,6 +41,7 @@ app.route("/v1/sql",         sqlRoute);
 app.route("/v1/service/keys", serviceKeysRoute);
 app.route("/v1/llm",          llmRoute);
 app.route("/v1/streams",      streamsRoute);
+app.route("/v1/graph",        graphRoute);
 app.route("/v1/stats",       statsRoute);
 app.route("/v1/projects/me", projectsMe);
 

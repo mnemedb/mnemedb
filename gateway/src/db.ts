@@ -12,7 +12,7 @@ export const sql = postgres(DATABASE_URL, {
 // Sane defaults so a zero-config user immediately has somewhere to write
 // memories / documents / events / kv pairs. Agents are free to create as many
 // additional tables as they want via POST /v1/tables.
-export const DEFAULT_TABLES = ["memories", "documents", "events", "kvs"] as const;
+export const DEFAULT_TABLES = ["memories", "documents", "events", "kvs", "entities", "relations"] as const;
 export type DefaultTable = (typeof DEFAULT_TABLES)[number];
 
 const HANDLE_RX = /^[a-z0-9_]{3,32}$/;
@@ -428,6 +428,79 @@ async function provisionDefaultTables(tx: postgres.TransactionSql, schema: strin
       updated_at  timestamptz default now()
     );
   `);
+  // Mneme Graph — entities + relations as first-class data (separate
+  // unsafe() call because pgvector's HNSW index DDL doesn't play well
+  // with the big multi-statement block above on some pg versions).
+  await tx.unsafe(`
+    CREATE TABLE IF NOT EXISTS "${schema}".entities (
+      id          bigserial primary key,
+      kind        text not null,
+      name        text not null,
+      properties  jsonb default '{}'::jsonb,
+      embedding   vector(1536),
+      created_at  timestamptz default now(),
+      UNIQUE (kind, name)
+    );
+    CREATE INDEX IF NOT EXISTS entities_kind_idx ON "${schema}".entities (kind);
+    CREATE INDEX IF NOT EXISTS entities_props_gin ON "${schema}".entities USING gin (properties);
+
+    CREATE TABLE IF NOT EXISTS "${schema}".relations (
+      id          bigserial primary key,
+      src_id      bigint not null references "${schema}".entities(id) ON DELETE CASCADE,
+      dst_id      bigint not null references "${schema}".entities(id) ON DELETE CASCADE,
+      kind        text not null,
+      weight      numeric default 1.0,
+      properties  jsonb default '{}'::jsonb,
+      created_at  timestamptz default now(),
+      UNIQUE (src_id, dst_id, kind)
+    );
+    CREATE INDEX IF NOT EXISTS relations_src_kind_idx ON "${schema}".relations (src_id, kind);
+    CREATE INDEX IF NOT EXISTS relations_dst_kind_idx ON "${schema}".relations (dst_id, kind);
+    CREATE INDEX IF NOT EXISTS relations_kind_idx     ON "${schema}".relations (kind);
+  `);
+}
+
+/**
+ * Ensure graph tables exist in a project schema — for existing projects
+ * created before Mneme Graph shipped. Idempotent. Called by every
+ * /v1/graph/* route on first hit. After one round of CREATE IF NOT EXISTS
+ * the route is a no-op fast path.
+ *
+ * NOTE: this uses `sql` (not a tx) so we don't run inside the route's
+ * postgres connection context — keep it tiny.
+ */
+const ensuredSchemas = new Set<string>();
+export async function ensureGraphTables(schema: string): Promise<void> {
+  if (!isValidSchemaName(schema)) throw new Error("invalid schema");
+  if (ensuredSchemas.has(schema)) return;
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS "${schema}".entities (
+      id          bigserial primary key,
+      kind        text not null,
+      name        text not null,
+      properties  jsonb default '{}'::jsonb,
+      embedding   vector(1536),
+      created_at  timestamptz default now(),
+      UNIQUE (kind, name)
+    );
+    CREATE INDEX IF NOT EXISTS entities_kind_idx  ON "${schema}".entities (kind);
+    CREATE INDEX IF NOT EXISTS entities_props_gin ON "${schema}".entities USING gin (properties);
+
+    CREATE TABLE IF NOT EXISTS "${schema}".relations (
+      id          bigserial primary key,
+      src_id      bigint not null references "${schema}".entities(id) ON DELETE CASCADE,
+      dst_id      bigint not null references "${schema}".entities(id) ON DELETE CASCADE,
+      kind        text not null,
+      weight      numeric default 1.0,
+      properties  jsonb default '{}'::jsonb,
+      created_at  timestamptz default now(),
+      UNIQUE (src_id, dst_id, kind)
+    );
+    CREATE INDEX IF NOT EXISTS relations_src_kind_idx ON "${schema}".relations (src_id, kind);
+    CREATE INDEX IF NOT EXISTS relations_dst_kind_idx ON "${schema}".relations (dst_id, kind);
+    CREATE INDEX IF NOT EXISTS relations_kind_idx     ON "${schema}".relations (kind);
+  `);
+  ensuredSchemas.add(schema);
 }
 
 // ─── User-defined tables ─────────────────────────────────────────────────────

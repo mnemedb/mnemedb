@@ -149,6 +149,7 @@ route.post("/chat", async (c) => {
 
   const schemaContext = await buildSchemaContext(ownSchema);
   const streamsContext = await buildStreamsContext(project.id);
+  const dreamsContext  = await buildDreamsContext(ownSchema);
 
   const systemPrompt = `You are Mneme — an agent-native Postgres database on Base, embedded inside the user's terminal CLI.
 
@@ -171,6 +172,7 @@ When the user wants live Base data, point them at the slash command:
 The user's current project schema is "${ownSchema}":
 ${schemaContext}
 ${streamsContext}
+${dreamsContext}
 
 Reply in plain text (no markdown headers, minimal bullets). Keep it tight — terminal-friendly width (~72 cols). End answers when you've said the useful thing.`;
 
@@ -247,6 +249,25 @@ async function buildStreamsContext(projectId: number): Promise<string> {
       `  ${r.target_table} ← ${r.event_name} events from ${r.contract.slice(0, 10)}…`,
     );
     return `\nMneme Live streams (real-time chain → schema):\n${lines.join("\n")}`;
+  } catch {
+    return "";
+  }
+}
+
+/** Latest Mneme Dreams attached to this project — surfaces async LLM reflections. */
+async function buildDreamsContext(schema: string): Promise<string> {
+  try {
+    const rows = await pg<Array<{ kind: string; title: string; body: string; created_at: Date }>>`
+      SELECT kind, title, body, created_at
+      FROM ${pg(schema)}.dreams
+      ORDER BY created_at DESC
+      LIMIT 3
+    `;
+    if (rows.length === 0) return "";
+    const lines = rows.map((r) =>
+      `  [${r.kind}] ${r.title}\n    ${r.body.split("\n").join("\n    ")}`,
+    );
+    return `\nRecent Mneme Dreams (async reflections on this project's data):\n${lines.join("\n")}`;
   } catch {
     return "";
   }

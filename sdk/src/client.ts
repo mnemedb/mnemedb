@@ -142,6 +142,63 @@ export class Mneme {
   };
 
   /**
+   * Mneme Dreams — async LLM reflection on your project's data.
+   *
+   * The gateway runs a background worker that reads each project's recent
+   * memories/entities/relations/streams and asks claude-sonnet-4.5 to
+   * surface NON-OBVIOUS observations:
+   *   pattern   — co-occurrence/repetition/cluster
+   *   question  — something the data implies worth investigating
+   *   gap       — data missing but likely useful given what IS there
+   *   synthesis — narrative paragraph across the recent window
+   *
+   * Worker runs ~daily per project. You can also force one immediately
+   * with .generate() — useful when you've just inserted a batch.
+   *
+   * @example
+   * await m.dreams.generate({ hint: "focus on what's connected to MNEME" });
+   * const recent = await m.dreams.list({ limit: 10 });
+   */
+  readonly dreams = {
+    /** Trigger a fresh dream pass right now. Returns the inserted rows. */
+    generate: (args?: { hint?: string; max_dreams?: number }) =>
+      this.request<{
+        ok:                 boolean;
+        count?:             number;
+        elapsed_ms?:        number;
+        context_chars?:     number;
+        records_considered?:number;
+        reason?:            string;
+        dreams: Array<{ id: number; kind: string; title: string; body: string; created_at: string }>;
+      }>("POST", "/v1/dreams/generate", args ?? {}),
+
+    /** List recent dreams (newest first). Optional kind filter. */
+    list: (opts?: { limit?: number; kind?: string }) => {
+      const q = new URLSearchParams();
+      if (opts?.limit) q.set("limit", String(opts.limit));
+      if (opts?.kind)  q.set("kind",  opts.kind);
+      return this.request<{
+        count:  number;
+        dreams: Array<{
+          id: number; kind: string; title: string; body: string;
+          sources: string[]; model: string | null; created_at: string;
+        }>;
+      }>("GET", `/v1/dreams${q.toString() ? `?${q}` : ""}`);
+    },
+
+    /** Fetch one dream by id. */
+    get: (id: number) =>
+      this.request<{
+        id: number; kind: string; title: string; body: string;
+        sources: string[]; model: string | null; created_at: string;
+      }>("GET", `/v1/dreams/${id}`),
+
+    /** Delete a dream. */
+    delete: (id: number) =>
+      this.request<{ ok: true; id: number }>("DELETE", `/v1/dreams/${id}`),
+  };
+
+  /**
    * Mneme Graph — entities + relations as first-class data.
    *
    * Solves pgvector's structural failure mode (similar keywords, divergent

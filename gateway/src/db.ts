@@ -12,7 +12,7 @@ export const sql = postgres(DATABASE_URL, {
 // Sane defaults so a zero-config user immediately has somewhere to write
 // memories / documents / events / kv pairs. Agents are free to create as many
 // additional tables as they want via POST /v1/tables.
-export const DEFAULT_TABLES = ["memories", "documents", "events", "kvs", "entities", "relations"] as const;
+export const DEFAULT_TABLES = ["memories", "documents", "events", "kvs", "entities", "relations", "dreams"] as const;
 export type DefaultTable = (typeof DEFAULT_TABLES)[number];
 
 const HANDLE_RX = /^[a-z0-9_]{3,32}$/;
@@ -457,7 +457,49 @@ async function provisionDefaultTables(tx: postgres.TransactionSql, schema: strin
     CREATE INDEX IF NOT EXISTS relations_src_kind_idx ON "${schema}".relations (src_id, kind);
     CREATE INDEX IF NOT EXISTS relations_dst_kind_idx ON "${schema}".relations (dst_id, kind);
     CREATE INDEX IF NOT EXISTS relations_kind_idx     ON "${schema}".relations (kind);
+
+    -- Mneme Dreams — async LLM reflection on the rest of the schema.
+    -- Worker writes one row per "dream" pass. Kinds:
+    --   pattern   — non-obvious co-occurrence the model surfaced
+    --   question  — open question worth answering
+    --   gap       — missing data the model thinks would be useful
+    --   synthesis — narrative summary across the recent window
+    CREATE TABLE IF NOT EXISTS "${schema}".dreams (
+      id          bigserial primary key,
+      kind        text not null,
+      title       text not null,
+      body        text not null,
+      sources     jsonb default '[]'::jsonb,
+      model       text,
+      created_at  timestamptz default now()
+    );
+    CREATE INDEX IF NOT EXISTS dreams_created_idx ON "${schema}".dreams (created_at desc);
+    CREATE INDEX IF NOT EXISTS dreams_kind_idx    ON "${schema}".dreams (kind);
   `);
+}
+
+/**
+ * Ensure dreams table exists in a project schema — for existing projects
+ * created before Mneme Dreams shipped. Idempotent + cached.
+ */
+const dreamsEnsured = new Set<string>();
+export async function ensureDreamsTable(schema: string): Promise<void> {
+  if (!isValidSchemaName(schema)) throw new Error("invalid schema");
+  if (dreamsEnsured.has(schema)) return;
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS "${schema}".dreams (
+      id          bigserial primary key,
+      kind        text not null,
+      title       text not null,
+      body        text not null,
+      sources     jsonb default '[]'::jsonb,
+      model       text,
+      created_at  timestamptz default now()
+    );
+    CREATE INDEX IF NOT EXISTS dreams_created_idx ON "${schema}".dreams (created_at desc);
+    CREATE INDEX IF NOT EXISTS dreams_kind_idx    ON "${schema}".dreams (kind);
+  `);
+  dreamsEnsured.add(schema);
 }
 
 /**

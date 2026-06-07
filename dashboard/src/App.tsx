@@ -8,13 +8,14 @@ import { TablesView } from "./components/TablesView";
 import { StorageView } from "./components/StorageView";
 import { SqlEditor } from "./components/SqlEditor";
 import { ServiceKeysView } from "./components/ServiceKeysView";
+import { DreamsView } from "./components/DreamsView";
 import { Docs } from "./components/Docs";
 import { Buy } from "./components/Buy";
 import { SettingsView } from "./components/SettingsView";
 import { useSession } from "./lib/session";
 import { useProjectMe } from "./lib/project";
 
-type View = "home" | "tables" | "sql" | "storage" | "keys" | "settings";
+type View = "home" | "tables" | "sql" | "dreams" | "storage" | "keys" | "settings";
 
 export function App() {
   // Docs route — public, no auth needed
@@ -114,6 +115,7 @@ export function App() {
           <NavItem active={view === "home"}     onClick={() => setView("home")}     label="Home" />
           <NavItem active={view === "tables"}   onClick={() => setView("tables")}   label="Tables" />
           <NavItem active={view === "sql"}      onClick={() => setView("sql")}      label="SQL" />
+          <NavItem active={view === "dreams"}   onClick={() => setView("dreams")}   label="Dreams" badge="new" />
           <NavItem active={view === "storage"}  onClick={() => setView("storage")}  label="Storage" />
           <NavItem active={view === "keys"}     onClick={() => setView("keys")}     label="API keys" />
           <NavItem active={view === "settings"} onClick={() => setView("settings")} label="Settings" />
@@ -128,6 +130,7 @@ export function App() {
           {view === "home"     && <ProjectHome project={project} />}
           {view === "tables"   && <TablesView />}
           {view === "sql"      && <SqlEditor />}
+          {view === "dreams"   && <DreamsView />}
           {view === "storage"  && <StorageView />}
           {view === "keys"     && <ServiceKeysView />}
           {view === "settings" && <SettingsView project={project} />}
@@ -137,15 +140,20 @@ export function App() {
   );
 }
 
-function NavItem({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+function NavItem({ active, onClick, label, badge }: { active: boolean; onClick: () => void; label: string; badge?: string }) {
   return (
     <button
       onClick={onClick}
-      className={`text-left px-3 py-2 rounded-lg text-sm transition ${
+      className={`text-left px-3 py-2 rounded-lg text-sm transition flex items-center justify-between gap-2 ${
         active ? "bg-ink-800 text-white" : "text-ink-400 hover:bg-ink-900 hover:text-white"
       }`}
     >
-      {label}
+      <span>{label}</span>
+      {badge && (
+        <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-gold-300/20 text-gold-300 border border-gold-300/40">
+          {badge}
+        </span>
+      )}
     </button>
   );
 }

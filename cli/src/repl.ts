@@ -342,6 +342,50 @@ async function handleSlash(
         return "ok";
       }
 
+      // ─── Mneme Dreams · async LLM reflection ──────────────────────
+      case "dream": {
+        // /dream            → generate 3 dreams right now
+        // /dream "hint"     → generate with a focus hint
+        const hint = arg.replace(/^"|"$/g, "").trim() || undefined;
+        const t0 = Date.now();
+        process.stdout.write(`  ${dim("dreaming…")}`);
+        const r = await m.dreams.generate({ hint, max_dreams: 3 });
+        process.stdout.write("\r" + " ".repeat(20) + "\r");
+        console.log("");
+        if (!r.ok) {
+          console.log(`  ${inkDim(r.reason ?? "no dreams generated")}`);
+          return "ok";
+        }
+        for (const d of r.dreams) {
+          const badge = kindBadge(d.kind);
+          console.log(`  ${badge}  ${gold(d.title)}`);
+          console.log(`  ${marble(d.body.split("\n").join("\n  "))}`);
+          console.log("");
+        }
+        console.log(`  ${ok("✓")} ${inkDim(`${r.count} dreams · ${Date.now() - t0}ms · ${r.records_considered} records read`)}`);
+        return "ok";
+      }
+
+      case "dreams": {
+        // /dreams [N]   default 10
+        const limit = arg ? Math.max(1, Math.min(Number(arg) || 10, 50)) : 10;
+        const r = await m.dreams.list({ limit });
+        console.log("");
+        if (r.count === 0) {
+          console.log(`  ${inkDim("no dreams yet — try /dream to generate the first one")}`);
+          return "ok";
+        }
+        for (const d of r.dreams) {
+          const badge = kindBadge(d.kind);
+          const when  = new Date(d.created_at).toLocaleString();
+          console.log(`  ${badge}  ${gold(d.title)}  ${inkDim("· #" + d.id + " · " + when)}`);
+          console.log(`  ${marble(d.body.split("\n").join("\n  "))}`);
+          console.log("");
+        }
+        console.log(`  ${ok("✓")} ${inkDim(`${r.count} dreams shown`)}`);
+        return "ok";
+      }
+
       case "path": {
         const m1 = arg.match(/^(\d+)\s+(\d+)(?:\s+max=(\d+))?$/);
         if (!m1) {
@@ -373,6 +417,17 @@ async function handleSlash(
     console.log(`  ${err("✗")} ${msg}`);
     return "ok";
   }
+}
+
+/** Tiny colored badge for a dream's kind. */
+function kindBadge(kind: string): string {
+  const k = kind.toLowerCase();
+  const label = ` ${kind.padEnd(9)} `;
+  if (k === "pattern")   return gold(label);
+  if (k === "question")  return goldSoft(label);
+  if (k === "gap")       return err(label);
+  if (k === "synthesis") return marble(label);
+  return inkDim(label);
 }
 
 function fmtBytes(b: number): string {

@@ -140,6 +140,35 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS _mneme_api_keys_owner_idx ON _mneme_api_keys (owner_wallet) WHERE revoked_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS _mneme_api_keys_hash_idx  ON _mneme_api_keys (key_hash) WHERE revoked_at IS NULL`;
 
+  // ─── Mneme Beam — single global NOTIFY function used by every
+  // beam-enabled table. Payload: { schema, table, op, id, ts }.
+  // One Postgres channel ("mneme_beam") is used for everything; the SSE
+  // route demuxes per project_schema on the way out.
+  await sql.unsafe(`
+    CREATE OR REPLACE FUNCTION mneme_beam_notify() RETURNS trigger AS $beam$
+    DECLARE
+      row_id text;
+    BEGIN
+      IF TG_OP = 'DELETE' THEN
+        row_id := COALESCE(OLD.id::text, '');
+      ELSE
+        row_id := COALESCE(NEW.id::text, '');
+      END IF;
+      PERFORM pg_notify(
+        'mneme_beam',
+        json_build_object(
+          'schema', TG_TABLE_SCHEMA,
+          'table',  TG_TABLE_NAME,
+          'op',     TG_OP,
+          'id',     row_id,
+          'ts',     to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+        )::text
+      );
+      RETURN COALESCE(NEW, OLD);
+    END;
+    $beam$ LANGUAGE plpgsql;
+  `);
+
   // ─── Chain streams (Mneme Live) ─────────────────────────────────────────
   // Live Base events → user schemas. Each row is a subscription: when the
   // worker sees a matching event onchain it INSERTs a row into the
@@ -476,6 +505,49 @@ async function provisionDefaultTables(tx: postgres.TransactionSql, schema: strin
     CREATE INDEX IF NOT EXISTS dreams_created_idx ON "${schema}".dreams (created_at desc);
     CREATE INDEX IF NOT EXISTS dreams_kind_idx    ON "${schema}".dreams (kind);
   `);
+  // Attach Mneme Beam triggers to every default table with an id column.
+  await attachBeamTriggers(tx, schema, [
+    "memories", "documents", "events", "entities", "relations", "dreams",
+  ]);
+}
+
+/**
+ * Attach the shared mneme_beam_notify trigger to a set of tables in a
+ * given schema. Idempotent — DROP IF EXISTS first, then CREATE.
+ */
+export async function attachBeamTriggers(
+  exec: { unsafe: (q: string) => Promise<unknown> },
+  schema: string,
+  tables: string[],
+): Promise<void> {
+  if (!isValidSchemaName(schema)) throw new Error("invalid schema");
+  for (const t of tables) {
+    if (!isValidTableName(t)) continue;
+    await exec.unsafe(`
+      DROP TRIGGER IF EXISTS mneme_beam_trg ON "${schema}"."${t}";
+      CREATE TRIGGER mneme_beam_trg
+        AFTER INSERT OR UPDATE OR DELETE ON "${schema}"."${t}"
+        FOR EACH ROW EXECUTE FUNCTION mneme_beam_notify();
+    `);
+  }
+}
+
+/**
+ * Ensure Beam triggers are attached to every eligible table in a project
+ * schema — lazy migration for projects created before Beam shipped.
+ * Idempotent + cached.
+ */
+const beamEnsured = new Set<string>();
+export async function ensureBeamTriggers(schema: string): Promise<void> {
+  if (!isValidSchemaName(schema)) throw new Error("invalid schema");
+  if (beamEnsured.has(schema)) return;
+  const rows = await sql<Array<{ table_name: string }>>`
+    SELECT table_name FROM information_schema.tables
+    WHERE table_schema = ${schema}
+      AND table_name IN ('memories','documents','events','entities','relations','dreams')
+  `;
+  await attachBeamTriggers(sql, schema, rows.map((r) => r.table_name));
+  beamEnsured.add(schema);
 }
 
 /**

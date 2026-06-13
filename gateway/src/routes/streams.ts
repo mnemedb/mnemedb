@@ -9,7 +9,7 @@
  * doesn't exist, with a standard chain-event row shape.
  */
 import { Hono } from "hono";
-import { sql, isValidTableName } from "../db";
+import { sql, isValidTableName, attachBeamTriggers } from "../db";
 import { parseEventSignature, type AbiInput } from "../chain";
 
 const route = new Hono();
@@ -68,6 +68,8 @@ route.post("/", async (c) => {
       CREATE INDEX IF NOT EXISTS "${target}_event_name_idx" ON "${project.schema_name}"."${target}" (event_name);
       CREATE INDEX IF NOT EXISTS "${target}_args_gin_idx"   ON "${project.schema_name}"."${target}" USING gin (args);
     `);
+    // Pipe this stream's inserts into Mneme Beam too.
+    await attachBeamTriggers(sql, project.schema_name, [target]);
   } catch (e) {
     return c.json({
       error: `could not create target table: ${(e as Error).message}`,

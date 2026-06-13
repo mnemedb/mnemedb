@@ -17,8 +17,10 @@ import { llmRoute } from "./routes/llm";
 import { streamsRoute } from "./routes/streams";
 import { graphRoute } from "./routes/graph";
 import { dreamsRoute } from "./routes/dreams";
+import { beamRoute } from "./routes/beam";
 import { startChainStreamsWorker } from "./worker/chainStreams";
 import { startDreamsWorker } from "./worker/dreams";
+import { startBeamHub } from "./worker/beamHub";
 
 const app = new Hono();
 
@@ -45,6 +47,7 @@ app.route("/v1/llm",          llmRoute);
 app.route("/v1/streams",      streamsRoute);
 app.route("/v1/graph",        graphRoute);
 app.route("/v1/dreams",       dreamsRoute);
+app.route("/v1/beam",         beamRoute);
 app.route("/v1/stats",       statsRoute);
 app.route("/v1/projects/me", projectsMe);
 
@@ -55,6 +58,9 @@ startChainStreamsWorker();
 
 // Mneme Dreams · async LLM reflection (writes daily synthesis rows per project)
 startDreamsWorker();
+
+// Mneme Beam · LISTEN hub (fans out NOTIFY events to SSE subscribers)
+startBeamHub();
 
 const port = Number(process.env.PORT ?? 8787);
 console.log(`mneme-gateway listening on :${port}`);

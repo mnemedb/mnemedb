@@ -366,6 +366,38 @@ async function handleSlash(
         return "ok";
       }
 
+      // ─── Mneme Beam · live SSE feed of every schema write ──────────
+      case "beam": {
+        console.log("");
+        console.log(`  ${gold("✦ beaming")} ${ink("·")} ${goldSoft(cfg.handle ?? "")}${ink(".mneme")}  ${inkDim("· press Ctrl+C to stop")}`);
+        console.log("");
+        const stop = m.beam.subscribe((ev) => {
+          const t = new Date(ev.ts);
+          const hh = String(t.getUTCHours()).padStart(2, "0");
+          const mm = String(t.getUTCMinutes()).padStart(2, "0");
+          const ss = String(t.getUTCSeconds()).padStart(2, "0");
+          const opColor = ev.op === "INSERT" ? ok : ev.op === "UPDATE" ? goldSoft : err;
+          console.log(
+            `  ${inkDim(`${hh}:${mm}:${ss}`)}  ` +
+            `${opColor(ev.op.padEnd(7))}  ` +
+            `${gold(ev.table.padEnd(14))} ` +
+            `${marble("#" + ev.id)}`,
+          );
+        });
+        // Re-stitch the prompt — wait for user to interrupt
+        await new Promise<void>((resolve) => {
+          const onSig = () => {
+            stop();
+            console.log("");
+            console.log(`  ${ok("✓")} ${inkDim("beam closed")}`);
+            process.off("SIGINT", onSig);
+            resolve();
+          };
+          process.on("SIGINT", onSig);
+        });
+        return "ok";
+      }
+
       case "dreams": {
         // /dreams [N]   default 10
         const limit = arg ? Math.max(1, Math.min(Number(arg) || 10, 50)) : 10;

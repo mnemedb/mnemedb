@@ -56,6 +56,15 @@ function uint8ToBase64(bytes: Uint8Array): string {
   return Buffer.from(parts.join(""), "binary").toString("base64");
 }
 
+/** One row event from the Mneme Beam SSE feed. */
+export interface BeamEvent {
+  schema: string;
+  table:  string;
+  op:     "INSERT" | "UPDATE" | "DELETE";
+  id:     string;
+  ts:     string;
+}
+
 export class MnemeError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -139,6 +148,76 @@ export class Mneme {
       this.request<{ reply: string; model: string; elapsed_ms: number }>(
         "POST", "/v1/llm/chat", args,
       ),
+  };
+
+  /**
+   * Mneme Beam — real-time SSE feed of every write to your schema.
+   *
+   * Every INSERT/UPDATE/DELETE to memories, documents, events, entities,
+   * relations, dreams, and any Mneme Live stream table fires a Postgres
+   * NOTIFY that the gateway re-broadcasts as an SSE event.
+   *
+   * @example
+   * const unsubscribe = m.beam.subscribe((ev) => {
+   *   console.log(`${ev.table} ${ev.op} #${ev.id}`);
+   * });
+   * // later
+   * unsubscribe();
+   */
+  readonly beam = {
+    subscribe: (
+      onEvent: (event: BeamEvent) => void,
+      opts?: { signal?: AbortSignal },
+    ): (() => void) => {
+      // Use API key in query param — EventSource doesn't carry headers in
+      // most environments. For wallet-auth, fall back to fetch+ReadableStream.
+      let url = `${this.gatewayUrl}/v1/beam`;
+      let headers: Record<string, string> = { Accept: "text/event-stream" };
+      if ("apiKey" in this.auth && this.auth.apiKey) {
+        headers["Authorization"] = `ApiKey ${this.auth.apiKey}`;
+      } else if ("accessToken" in this.auth && this.auth.accessToken) {
+        headers["Authorization"] = `Bearer ${this.auth.accessToken}`;
+      }
+      const controller = new AbortController();
+      const signal = opts?.signal
+        ? AbortSignal.any([opts.signal, controller.signal])
+        : controller.signal;
+
+      void (async () => {
+        try {
+          const res = await fetch(url, { headers, signal });
+          if (!res.body) return;
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = "";
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let nl;
+            // SSE messages are separated by blank lines (\n\n)
+            while ((nl = buf.indexOf("\n\n")) !== -1) {
+              const raw = buf.slice(0, nl);
+              buf = buf.slice(nl + 2);
+              const lines = raw.split("\n");
+              let evName = "message";
+              let dataLines: string[] = [];
+              for (const ln of lines) {
+                if (ln.startsWith("event:")) evName = ln.slice(6).trim();
+                else if (ln.startsWith("data:")) dataLines.push(ln.slice(5).trim());
+              }
+              if (evName !== "row" || dataLines.length === 0) continue;
+              try {
+                const parsed = JSON.parse(dataLines.join("\n")) as BeamEvent;
+                onEvent(parsed);
+              } catch { /* malformed event */ }
+            }
+          }
+        } catch { /* aborted or network error */ }
+      })();
+
+      return () => controller.abort();
+    },
   };
 
   /**

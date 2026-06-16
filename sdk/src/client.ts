@@ -151,6 +151,107 @@ export class Mneme {
   };
 
   /**
+   * Mneme Mesh — agent-to-agent memory marketplace.
+   *
+   * Sellers list a table for paid querying. Buyers discover, pay per
+   * query (free tier 10/wallet, then USDC credits topped up via Base tx
+   * verification). Sellers earn USDC per query they serve.
+   *
+   * @example
+   * // Seller — list a table for sale
+   * await m.mesh.list({
+   *   table_name: "memories",
+   *   kind:       "memories",
+   *   title:      "vitalik tweet archive (Q2 2026)",
+   *   price_usdc: 0.05,
+   * });
+   *
+   * // Buyer — find + query
+   * const { listings } = await m.mesh.discover({ kind: "memories", q: "vitalik" });
+   * const result = await m.mesh.query(listings[0].id, { prompt: "pgvector" });
+   */
+  readonly mesh = {
+    /** Public marketplace browse. */
+    discover: (opts?: { kind?: string; q?: string; limit?: number }) => {
+      const qs = new URLSearchParams();
+      if (opts?.kind)  qs.set("kind",  opts.kind);
+      if (opts?.q)     qs.set("q",     opts.q);
+      if (opts?.limit) qs.set("limit", String(opts.limit));
+      return this.request<{
+        count: number;
+        listings: Array<{
+          id: number; kind: string; title: string; description: string | null;
+          price_usdc: string; price_mneme: string | null;
+          query_count: string; created_at: string;
+          seller_handle: string; seller_bio: string | null;
+        }>;
+      }>("GET", `/v1/mesh/discover${qs.toString() ? `?${qs}` : ""}`);
+    },
+
+    /** Publish a table from your schema for paid querying. */
+    list: (args: {
+      table_name:  string;
+      kind:        "memories" | "documents" | "events" | "entities" | "relations" | "dreams";
+      title:       string;
+      description?:string;
+      price_usdc?: number;
+      price_mneme?:number;
+      bio?:        string;
+    }) =>
+      this.request<{
+        ok: true; id: number; table_name: string; kind: string; title: string;
+        price_usdc: number; price_mneme: number | null; url: string; created_at: string;
+      }>("POST", "/v1/mesh/listings", args),
+
+    /** Your own listings (seller side). */
+    listings: () =>
+      this.request<{
+        count: number;
+        listings: Array<{
+          id: number; table_name: string; kind: string; title: string;
+          description: string | null; price_usdc: string; price_mneme: string | null;
+          query_count: string; revenue_usdc: string; active: boolean; created_at: string;
+        }>;
+      }>("GET", "/v1/mesh/listings"),
+
+    /** Deactivate a listing. */
+    unlist: (id: number) =>
+      this.request<{ ok: true; id: number }>("DELETE", `/v1/mesh/listings/${id}`),
+
+    /** Buy + run a query against a listing. */
+    query: (listingId: number, args?: { prompt?: string; limit?: number; pay_with?: "credits" | "free" }) =>
+      this.request<{
+        ok: true; listing_id: number; rows: unknown[]; rows_returned: number;
+        cost_usdc: number; paid_via: "free" | "credits";
+      }>("POST", `/v1/mesh/query/${listingId}`, args ?? {}),
+
+    /** Your buyer-side credits balance. */
+    credits: () =>
+      this.request<{
+        wallet: string; credits_usdc: number; free_remaining: number;
+        updated_at?: string; treasury: string | null;
+      }>("GET", "/v1/mesh/credits"),
+
+    /** Submit a Base USDC tx hash to credit your wallet. */
+    topup: (tx_hash: string) =>
+      this.request<{ ok: true; tx_hash: string; credited_usdc: number }>(
+        "POST", "/v1/mesh/credits/topup", { tx_hash },
+      ),
+
+    /** Seller dashboard — totals + recent queries received. */
+    sales: () =>
+      this.request<{
+        total_queries: number; total_revenue: number; active_listings: number;
+        recent: Array<{
+          id: number; listing_id: number; consumer_wallet: string;
+          prompt: string | null; rows_returned: number; cost_usdc: string;
+          paid_via: string; created_at: string;
+          listing_title: string; table_name: string;
+        }>;
+      }>("GET", "/v1/mesh/sales"),
+  };
+
+  /**
    * Mneme Beam — real-time SSE feed of every write to your schema.
    *
    * Every INSERT/UPDATE/DELETE to memories, documents, events, entities,

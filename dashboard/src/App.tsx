@@ -9,13 +9,14 @@ import { StorageView } from "./components/StorageView";
 import { SqlEditor } from "./components/SqlEditor";
 import { ServiceKeysView } from "./components/ServiceKeysView";
 import { DreamsView } from "./components/DreamsView";
+import { MeshView } from "./components/MeshView";
 import { Docs } from "./components/Docs";
 import { Buy } from "./components/Buy";
 import { SettingsView } from "./components/SettingsView";
 import { useSession } from "./lib/session";
 import { useProjectMe } from "./lib/project";
 
-type View = "home" | "tables" | "sql" | "dreams" | "storage" | "keys" | "settings";
+type View = "home" | "tables" | "sql" | "mesh" | "dreams" | "storage" | "keys" | "settings";
 
 export function App() {
   // Docs route — public, no auth needed
@@ -113,9 +114,10 @@ export function App() {
       <div className="flex flex-1 min-h-0">
         <nav className="w-48 border-r border-ink-900 p-3 flex flex-col gap-1">
           <NavItem active={view === "home"}     onClick={() => setView("home")}     label="Home" />
+          <NavItem active={view === "mesh"}     onClick={() => setView("mesh")}     label="Mesh" badge="new" />
           <NavItem active={view === "tables"}   onClick={() => setView("tables")}   label="Tables" />
           <NavItem active={view === "sql"}      onClick={() => setView("sql")}      label="SQL" />
-          <NavItem active={view === "dreams"}   onClick={() => setView("dreams")}   label="Dreams" badge="new" />
+          <NavItem active={view === "dreams"}   onClick={() => setView("dreams")}   label="Dreams" />
           <NavItem active={view === "storage"}  onClick={() => setView("storage")}  label="Storage" />
           <NavItem active={view === "keys"}     onClick={() => setView("keys")}     label="API keys" />
           <NavItem active={view === "settings"} onClick={() => setView("settings")} label="Settings" />
@@ -128,6 +130,7 @@ export function App() {
         </nav>
         <main className="flex-1 overflow-auto">
           {view === "home"     && <ProjectHome project={project} />}
+          {view === "mesh"     && <MeshView />}
           {view === "tables"   && <TablesView />}
           {view === "sql"      && <SqlEditor />}
           {view === "dreams"   && <DreamsView />}

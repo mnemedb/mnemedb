@@ -366,6 +366,160 @@ async function handleSlash(
         return "ok";
       }
 
+      // ─── Mneme Mesh · agent-to-agent memory marketplace ────────────
+      case "mesh": {
+        const [sub, ...rest3] = arg.split(/\s+/);
+        const tail = rest3.join(" ").trim();
+
+        if (!sub || sub === "help") {
+          console.log("");
+          console.log(`  ${goldSoft("mneme mesh")} ${ink("·")} ${inkDim("agent-to-agent memory marketplace")}`);
+          console.log("");
+          console.log(`  ${gold("/mesh discover [kind=K] [q=...]")}     browse listings`);
+          console.log(`  ${gold("/mesh list <table> $<price> \"<title>\"")}  publish for sale`);
+          console.log(`  ${gold("/mesh listings")}                       your own listings`);
+          console.log(`  ${gold("/mesh unlist <id>")}                    deactivate`);
+          console.log(`  ${gold("/mesh query <id> [\"prompt\"]")}          buy + query`);
+          console.log(`  ${gold("/mesh credits")}                        your balance`);
+          console.log(`  ${gold("/mesh topup <tx_hash>")}                credit via Base USDC tx`);
+          console.log(`  ${gold("/mesh sales")}                          your seller dashboard`);
+          console.log("");
+          return "ok";
+        }
+
+        if (sub === "discover") {
+          const opts: { kind?: string; q?: string; limit?: number } = {};
+          for (const tok of rest3) {
+            const m1 = tok.match(/^kind=(\w+)$/);  if (m1) opts.kind = m1[1];
+            const m2 = tok.match(/^q=(.+)$/);      if (m2) opts.q    = m2[1];
+            const m3 = tok.match(/^limit=(\d+)$/); if (m3) opts.limit= Number(m3[1]);
+          }
+          const r = await m.mesh.discover(opts);
+          console.log("");
+          if (r.count === 0) { console.log(`  ${inkDim("no listings yet")}`); return "ok"; }
+          console.log(renderTable(
+            r.listings.map((l) => ({
+              id:     l.id,
+              seller: l.seller_handle + ".mneme",
+              kind:   l.kind,
+              title:  l.title.length > 40 ? l.title.slice(0, 39) + "…" : l.title,
+              price:  Number(l.price_usdc) === 0 ? "free" : "$" + Number(l.price_usdc).toFixed(4),
+              queries:l.query_count,
+            })),
+            ["id", "seller", "kind", "title", "price", "queries"],
+          ));
+          return "ok";
+        }
+
+        if (sub === "list") {
+          const m1 = tail.match(/^(\S+)\s+\$([\d.]+)\s+"(.+)"$/);
+          if (!m1) {
+            console.log(`  ${err("✗")} usage: /mesh list <table> $<price> "<title>"`);
+            return "ok";
+          }
+          const [, table, priceStr, title] = m1;
+          const r = await m.mesh.list({
+            table_name: table!,
+            kind:       guessKind(table!),
+            title:      title!,
+            price_usdc: Number(priceStr),
+          });
+          console.log("");
+          console.log(`  ${ok("✓")} ${marble(`listing #${r.id} published`)}`);
+          console.log(`  ${ink("table  ")} ${gold(r.table_name)} ${inkDim("(" + r.kind + ")")}`);
+          console.log(`  ${ink("title  ")} ${marble(r.title)}`);
+          console.log(`  ${ink("price  ")} ${goldSoft("$" + r.price_usdc.toFixed(4))} ${inkDim("per query")}`);
+          console.log(`  ${ink("url    ")} ${dim(r.url)}`);
+          return "ok";
+        }
+
+        if (sub === "listings") {
+          const r = await m.mesh.listings();
+          console.log("");
+          if (r.count === 0) { console.log(`  ${inkDim("no listings yet — try /mesh list")}`); return "ok"; }
+          console.log(renderTable(
+            r.listings.map((l) => ({
+              id:      l.id,
+              table:   l.table_name,
+              kind:    l.kind,
+              price:   Number(l.price_usdc) === 0 ? "free" : "$" + Number(l.price_usdc).toFixed(4),
+              queries: l.query_count,
+              revenue: "$" + Number(l.revenue_usdc).toFixed(4),
+              active:  l.active ? "✓" : "—",
+            })),
+            ["id", "table", "kind", "price", "queries", "revenue", "active"],
+          ));
+          return "ok";
+        }
+
+        if (sub === "unlist") {
+          const id = Number(rest3[0]);
+          if (!id) { console.log(`  ${err("✗")} usage: /mesh unlist <id>`); return "ok"; }
+          await m.mesh.unlist(id);
+          console.log(`  ${ok("✓")} ${inkDim(`listing #${id} deactivated`)}`);
+          return "ok";
+        }
+
+        if (sub === "query") {
+          const id = Number(rest3[0]);
+          if (!id) { console.log(`  ${err("✗")} usage: /mesh query <id> ["prompt"]`); return "ok"; }
+          const promptMatch = tail.match(/"([^"]+)"/);
+          const prompt = promptMatch ? promptMatch[1] : undefined;
+          const r = await m.mesh.query(id, { prompt, limit: 10 });
+          console.log("");
+          console.log(`  ${ok("✓")} ${inkDim(`${r.rows_returned} rows · paid via ${r.paid_via}`)}`);
+          if (r.rows_returned > 0 && Array.isArray(r.rows)) {
+            const first = r.rows[0] as Record<string, unknown>;
+            const cols  = Object.keys(first).slice(0, 6);
+            console.log(renderTable(r.rows as Record<string, unknown>[], cols));
+          }
+          return "ok";
+        }
+
+        if (sub === "credits") {
+          const r = await m.mesh.credits();
+          console.log("");
+          console.log(`  ${ink("wallet     ")} ${marble(r.wallet)}`);
+          console.log(`  ${ink("credits    ")} ${gold("$" + r.credits_usdc.toFixed(4))} ${inkDim("USDC")}`);
+          console.log(`  ${ink("free left  ")} ${marble(String(r.free_remaining))} ${inkDim("queries")}`);
+          if (r.treasury) {
+            console.log("");
+            console.log(`  ${inkDim("to topup: send USDC on Base to")}`);
+            console.log(`  ${gold(r.treasury)}`);
+            console.log(`  ${inkDim("then run /mesh topup <tx_hash>")}`);
+          }
+          return "ok";
+        }
+
+        if (sub === "topup") {
+          const tx = (rest3[0] ?? "").trim();
+          if (!tx) { console.log(`  ${err("✗")} usage: /mesh topup <tx_hash>`); return "ok"; }
+          const r = await m.mesh.topup(tx);
+          console.log(`  ${ok("✓")} ${marble("+$" + r.credited_usdc.toFixed(4))} ${inkDim("credited from " + tx.slice(0, 10) + "…")}`);
+          return "ok";
+        }
+
+        if (sub === "sales") {
+          const r = await m.mesh.sales();
+          console.log("");
+          console.log(`  ${ink("active listings ")} ${marble(String(r.active_listings))}`);
+          console.log(`  ${ink("total queries   ")} ${marble(String(r.total_queries))}`);
+          console.log(`  ${ink("total revenue   ")} ${gold("$" + r.total_revenue.toFixed(4))}`);
+          console.log("");
+          if (r.recent.length > 0) {
+            console.log(`  ${goldSoft("recent sales")}`);
+            for (const q of r.recent.slice(0, 8)) {
+              const who = q.consumer_wallet.slice(0, 6) + "…" + q.consumer_wallet.slice(-4);
+              console.log(`  ${inkDim(new Date(q.created_at).toLocaleString())}  ${marble(q.listing_title)}  ${gold(who)}  ${goldSoft("$" + Number(q.cost_usdc).toFixed(4))}`);
+            }
+          }
+          return "ok";
+        }
+
+        console.log(`  ${err("✗")} unknown subcommand: /mesh ${sub} — try /mesh help`);
+        return "ok";
+      }
+
       // ─── Mneme Beam · live SSE feed of every schema write ──────────
       case "beam": {
         console.log("");
@@ -460,6 +614,18 @@ function kindBadge(kind: string): string {
   if (k === "gap")       return err(label);
   if (k === "synthesis") return marble(label);
   return inkDim(label);
+}
+
+/** Guess mesh listing kind from a table name. Falls back to 'memories'. */
+function guessKind(table: string): "memories" | "documents" | "events" | "entities" | "relations" | "dreams" {
+  const t = table.toLowerCase();
+  if (t === "memories")  return "memories";
+  if (t === "documents") return "documents";
+  if (t === "events")    return "events";
+  if (t === "entities")  return "entities";
+  if (t === "relations") return "relations";
+  if (t === "dreams")    return "dreams";
+  return "memories";
 }
 
 function fmtBytes(b: number): string {

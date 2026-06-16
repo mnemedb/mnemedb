@@ -18,6 +18,7 @@ import { streamsRoute } from "./routes/streams";
 import { graphRoute } from "./routes/graph";
 import { dreamsRoute } from "./routes/dreams";
 import { beamRoute } from "./routes/beam";
+import { meshRoute } from "./routes/mesh";
 import { startChainStreamsWorker } from "./worker/chainStreams";
 import { startDreamsWorker } from "./worker/dreams";
 import { startBeamHub } from "./worker/beamHub";
@@ -48,6 +49,7 @@ app.route("/v1/streams",      streamsRoute);
 app.route("/v1/graph",        graphRoute);
 app.route("/v1/dreams",       dreamsRoute);
 app.route("/v1/beam",         beamRoute);
+app.route("/v1/mesh",         meshRoute);
 app.route("/v1/stats",       statsRoute);
 app.route("/v1/projects/me", projectsMe);
 

@@ -140,6 +140,73 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS _mneme_api_keys_owner_idx ON _mneme_api_keys (owner_wallet) WHERE revoked_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS _mneme_api_keys_hash_idx  ON _mneme_api_keys (key_hash) WHERE revoked_at IS NULL`;
 
+  // ─── Mneme Mesh — agent-to-agent memory marketplace ────────────────
+  // Per-project public-listing of a specific table for paid querying.
+  // Buyers pay (USDC credits, $MNEME burn, or x402-soon) per query.
+  // Sellers earn per query. Free tier: 10 queries / consumer wallet.
+  await sql`
+    ALTER TABLE _mneme_projects
+      ADD COLUMN IF NOT EXISTS mesh_enabled boolean NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS mesh_bio     text
+  `.catch(() => { /* concurrent migration safe */ });
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_mesh_listings (
+      id            bigserial PRIMARY KEY,
+      project_id    bigint NOT NULL REFERENCES _mneme_projects(id) ON DELETE CASCADE,
+      table_name    text   NOT NULL,
+      kind          text   NOT NULL,                 -- 'memories' | 'entities' | 'documents' | 'dreams'
+      title         text   NOT NULL,
+      description   text,
+      price_usdc    numeric(10,6) NOT NULL DEFAULT 0,
+      price_mneme   numeric(20,6),                   -- alt price in $MNEME tokens (whole units)
+      query_count   bigint NOT NULL DEFAULT 0,
+      revenue_usdc  numeric(20,6) NOT NULL DEFAULT 0,
+      active        boolean NOT NULL DEFAULT true,
+      created_at    timestamptz DEFAULT now(),
+      UNIQUE (project_id, table_name)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_mesh_listings_active_idx ON _mneme_mesh_listings (active, kind) WHERE active = true`;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_mesh_listings_project_idx ON _mneme_mesh_listings (project_id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_mesh_credits (
+      wallet          text PRIMARY KEY,
+      credits_usdc    numeric(20,6) NOT NULL DEFAULT 0,    -- paid balance
+      free_remaining  int NOT NULL DEFAULT 10,             -- free tier counter
+      updated_at      timestamptz DEFAULT now()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_mesh_topups (
+      tx_hash       text PRIMARY KEY,
+      wallet        text NOT NULL,
+      kind          text NOT NULL,                   -- 'usdc' | 'mneme'
+      amount_usdc   numeric(20,6),                   -- credits added (USDC-equivalent)
+      raw_amount    text,                            -- raw token units
+      block_number  bigint,
+      created_at    timestamptz DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_mesh_topups_wallet_idx ON _mneme_mesh_topups (wallet)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_mesh_queries (
+      id               bigserial PRIMARY KEY,
+      consumer_wallet  text NOT NULL,
+      listing_id       bigint NOT NULL REFERENCES _mneme_mesh_listings(id) ON DELETE CASCADE,
+      prompt           text,
+      rows_returned    int NOT NULL DEFAULT 0,
+      cost_usdc        numeric(10,6) NOT NULL DEFAULT 0,
+      paid_via         text,                         -- 'free' | 'credits' | 'mneme'
+      created_at       timestamptz DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_mesh_queries_listing_idx ON _mneme_mesh_queries (listing_id, created_at desc)`;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_mesh_queries_consumer_idx ON _mneme_mesh_queries (consumer_wallet, created_at desc)`;
+
   // ─── Mneme Beam — single global NOTIFY function used by every
   // beam-enabled table. Payload: { schema, table, op, id, ts }.
   // One Postgres channel ("mneme_beam") is used for everything; the SSE

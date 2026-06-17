@@ -366,6 +366,93 @@ async function handleSlash(
         return "ok";
       }
 
+      // ─── Mneme Mandate · declarative agent intents ──────────────────
+      case "mandate":
+      case "mandates": {
+        const [sub, ...rest4] = arg.split(/\s+/);
+
+        if (!sub || sub === "help") {
+          console.log("");
+          console.log(`  ${goldSoft("mneme mandate")} ${ink("·")} ${inkDim("declarative agent intents")}`);
+          console.log("");
+          console.log(`  ${gold("/mandate create '<json>'")}        publish an intent`);
+          console.log(`  ${gold("/mandates [status=S]")}            list your mandates`);
+          console.log(`  ${gold("/mandate arm <id>")}               start watching conditions`);
+          console.log(`  ${gold("/mandate cancel <id>")}            cancel`);
+          console.log(`  ${gold("/mandate execute <id> [tx]")}      mark as executed`);
+          console.log(`  ${gold("/mandate rm <id>")}                delete (non-executed only)`);
+          console.log("");
+          console.log(`  ${inkDim("intent example:")} ${dim("{\"kind\":\"swap\",\"title\":\"buy MNEME dip\",\"intent\":{\"from\":\"USDC\",\"to\":\"MNEME\",\"amount\":100}}")}`);
+          console.log("");
+          return "ok";
+        }
+
+        if (sub === "create") {
+          const json = arg.replace(/^create\s+/, "").trim();
+          let parsed: Record<string, unknown>;
+          try {
+            // strip leading/trailing quotes if user wrapped it
+            const clean = json.replace(/^['"]|['"]$/g, "");
+            parsed = JSON.parse(clean);
+          } catch {
+            console.log(`  ${err("✗")} invalid JSON — see /mandate help`);
+            return "ok";
+          }
+          const r = await m.mandates.create(parsed as Parameters<typeof m.mandates.create>[0]);
+          console.log("");
+          console.log(`  ${ok("✓")} ${marble(`mandate #${r.id} created`)}`);
+          console.log(`  ${ink("kind   ")} ${gold(r.kind)}`);
+          console.log(`  ${ink("title  ")} ${marble(r.title)}`);
+          console.log(`  ${ink("wallet ")} ${goldSoft(r.wallet_provider)}`);
+          console.log(`  ${ink("status ")} ${inkDim(r.status)}`);
+          console.log("");
+          console.log(`  ${inkDim(r.next)}`);
+          return "ok";
+        }
+
+        if (sub === "arm" || sub === "cancel" || sub === "rm" || sub === "execute") {
+          const id = Number(rest4[0]);
+          if (!id) { console.log(`  ${err("✗")} usage: /mandate ${sub} <id>`); return "ok"; }
+          try {
+            if (sub === "arm") {
+              const r = await m.mandates.arm(id);
+              console.log(`  ${ok("✓")} ${inkDim(`mandate #${r.id} armed — worker is watching`)}`);
+            } else if (sub === "cancel") {
+              const r = await m.mandates.cancel(id);
+              console.log(`  ${ok("✓")} ${inkDim(`mandate #${r.id} cancelled`)}`);
+            } else if (sub === "execute") {
+              const tx = rest4[1];
+              const r = await m.mandates.execute(id, tx ? { tx_hash: tx } : undefined);
+              console.log(`  ${ok("✓")} ${inkDim(`mandate #${r.id} executed${r.tx_hash ? " · tx " + r.tx_hash.slice(0, 12) + "…" : ""}`)}`);
+            } else {
+              await m.mandates.delete(id);
+              console.log(`  ${ok("✓")} ${inkDim(`mandate #${id} deleted`)}`);
+            }
+          } catch (e) {
+            console.log(`  ${err("✗")} ${(e as Error).message}`);
+          }
+          return "ok";
+        }
+
+        // Default: list
+        const status = rest4.find((t) => t.startsWith("status="))?.split("=")[1];
+        const r = await m.mandates.list({ status, limit: 30 });
+        console.log("");
+        if (r.count === 0) { console.log(`  ${inkDim("no mandates yet")}`); return "ok"; }
+        console.log(renderTable(
+          r.mandates.map((m1) => ({
+            id:     m1.id,
+            kind:   m1.kind,
+            title:  m1.title.length > 36 ? m1.title.slice(0, 35) + "…" : m1.title,
+            wallet: m1.wallet_provider,
+            status: m1.status,
+            cap:    m1.spend_cap_usdc ? "$" + Number(m1.spend_cap_usdc).toFixed(2) : "—",
+          })),
+          ["id", "kind", "title", "wallet", "status", "cap"],
+        ));
+        return "ok";
+      }
+
       // ─── Mneme Mesh · agent-to-agent memory marketplace ────────────
       case "mesh": {
         const [sub, ...rest3] = arg.split(/\s+/);

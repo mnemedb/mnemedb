@@ -151,6 +151,84 @@ export class Mneme {
   };
 
   /**
+   * Mneme Mandate — declarative agent intents stored in your schema.
+   *
+   * Built for the agent-wallet category (MetaMask Agentic Wallet,
+   * Coinbase Smart Wallet, Privy). You write a mandate (kind + intent +
+   * conditions + spend cap + risk profile), Mneme stores it, and a
+   * configured wallet adapter executes it when conditions trip.
+   *
+   * Status lifecycle: pending → armed → triggered → executed (or
+   * cancelled / failed).
+   *
+   * @example
+   * const m = await mneme.mandates.create({
+   *   kind:  "swap",
+   *   title: "auto-DCA into MNEME when price drops 5%",
+   *   intent: { from_token: "USDC", to_token: "MNEME", amount_usdc: 100 },
+   *   conditions: { when: "on_event", spec: { table: "mneme_prices", op: "lt", value: 0.10 } },
+   *   spend_cap_usdc: 1000,
+   *   risk_profile: { max_slippage: 0.01, allowed_protocols: ["uniswap-v3"] },
+   *   wallet_provider: "metamask",
+   * });
+   * await mneme.mandates.arm(m.id);
+   */
+  readonly mandates = {
+    create: (args: {
+      kind:             "swap" | "send" | "stake" | "lp" | "perp" | "predict" | "mint" | "vote";
+      title:            string;
+      intent:           Record<string, unknown>;
+      conditions?:      Record<string, unknown>;
+      spend_cap_usdc?:  number;
+      risk_profile?:    Record<string, unknown>;
+      wallet_provider?: "metamask" | "coinbase_smart" | "privy" | "custom";
+      expires_at?:      string;
+    }) =>
+      this.request<{
+        ok: true; id: number; kind: string; title: string;
+        wallet_provider: string; status: string; created_at: string; next: string;
+      }>("POST", "/v1/mandates", args),
+
+    list: (opts?: { status?: string; kind?: string; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (opts?.status) q.set("status", opts.status);
+      if (opts?.kind)   q.set("kind",   opts.kind);
+      if (opts?.limit)  q.set("limit",  String(opts.limit));
+      return this.request<{
+        count: number;
+        mandates: Array<{
+          id: number; kind: string; title: string;
+          intent: Record<string, unknown>; conditions: Record<string, unknown>;
+          spend_cap_usdc: string | null; risk_profile: Record<string, unknown>;
+          wallet_provider: string; status: string;
+          tx_hash: string | null; expires_at: string | null;
+          created_at: string; armed_at: string | null;
+          triggered_at: string | null; executed_at: string | null;
+          last_error: string | null;
+        }>;
+      }>("GET", `/v1/mandates${q.toString() ? `?${q}` : ""}`);
+    },
+
+    get: (id: number) =>
+      this.request<Record<string, unknown>>("GET", `/v1/mandates/${id}`),
+
+    arm: (id: number) =>
+      this.request<{ ok: true; id: number; status: string }>("POST", `/v1/mandates/${id}/arm`, {}),
+
+    cancel: (id: number) =>
+      this.request<{ ok: true; id: number; status: string }>("POST", `/v1/mandates/${id}/cancel`, {}),
+
+    /** Mark as executed — for adapters that already ran the tx, or for test rigs. */
+    execute: (id: number, args?: { tx_hash?: string; gas_used?: number }) =>
+      this.request<{ ok: true; id: number; status: string; tx_hash: string | null; executed_at: string }>(
+        "POST", `/v1/mandates/${id}/execute`, args ?? {},
+      ),
+
+    delete: (id: number) =>
+      this.request<{ ok: true; id: number }>("DELETE", `/v1/mandates/${id}`),
+  };
+
+  /**
    * Mneme Mesh — agent-to-agent memory marketplace.
    *
    * Sellers list a table for paid querying. Buyers discover, pay per

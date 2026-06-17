@@ -11,9 +11,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, "index.html"),
-        docs: resolve(__dirname, "docs/index.html"),
-        buy:  resolve(__dirname, "buy/index.html"),
+        main:     resolve(__dirname, "index.html"),
+        docs:     resolve(__dirname, "docs/index.html"),
+        buy:      resolve(__dirname, "buy/index.html"),
+        metamask: resolve(__dirname, "metamask/index.html"),
       },
     },
   },

@@ -12,7 +12,7 @@ export const sql = postgres(DATABASE_URL, {
 // Sane defaults so a zero-config user immediately has somewhere to write
 // memories / documents / events / kv pairs. Agents are free to create as many
 // additional tables as they want via POST /v1/tables.
-export const DEFAULT_TABLES = ["memories", "documents", "events", "kvs", "entities", "relations", "dreams"] as const;
+export const DEFAULT_TABLES = ["memories", "documents", "events", "kvs", "entities", "relations", "dreams", "mandates"] as const;
 export type DefaultTable = (typeof DEFAULT_TABLES)[number];
 
 const HANDLE_RX = /^[a-z0-9_]{3,32}$/;
@@ -571,6 +571,34 @@ async function provisionDefaultTables(tx: postgres.TransactionSql, schema: strin
     );
     CREATE INDEX IF NOT EXISTS dreams_created_idx ON "${schema}".dreams (created_at desc);
     CREATE INDEX IF NOT EXISTS dreams_kind_idx    ON "${schema}".dreams (kind);
+
+    -- Mneme Mandate — declarative agent intents. Wallet-agnostic with
+    -- adapter routing (metamask, coinbase_smart, privy, custom). Worker
+    -- evaluates `conditions` against the schema (e.g. Streams tables);
+    -- when triggered, the configured wallet adapter executes the intent
+    -- and writes back to `tx_hash` + status.
+    CREATE TABLE IF NOT EXISTS "${schema}".mandates (
+      id              bigserial primary key,
+      kind            text not null,                  -- 'swap' | 'send' | 'stake' | 'lp' | 'perp' | 'predict' | 'mint' | 'vote'
+      title           text not null,
+      intent          jsonb not null,                 -- {from_token, to_token, amount, slippage, ...}
+      conditions      jsonb default '{}'::jsonb,      -- {when: 'always' | 'on_event' | 'schedule', spec: {...}}
+      spend_cap_usdc  numeric(20,6),
+      risk_profile    jsonb default '{}'::jsonb,      -- {max_slippage, allowed_protocols, blocked_addresses, ...}
+      wallet_provider text not null default 'coinbase_smart',  -- 'metamask' | 'coinbase_smart' | 'privy' | 'custom'
+      status          text not null default 'pending',         -- 'pending' | 'armed' | 'triggered' | 'executed' | 'failed' | 'cancelled'
+      tx_hash         text,
+      gas_used        bigint,
+      expires_at      timestamptz,
+      created_at      timestamptz default now(),
+      armed_at        timestamptz,
+      triggered_at    timestamptz,
+      executed_at     timestamptz,
+      last_error      text
+    );
+    CREATE INDEX IF NOT EXISTS mandates_status_idx     ON "${schema}".mandates (status);
+    CREATE INDEX IF NOT EXISTS mandates_kind_idx       ON "${schema}".mandates (kind);
+    CREATE INDEX IF NOT EXISTS mandates_created_idx    ON "${schema}".mandates (created_at desc);
   `);
   // Attach Mneme Beam triggers to every default table with an id column.
   await attachBeamTriggers(tx, schema, [
@@ -615,6 +643,38 @@ export async function ensureBeamTriggers(schema: string): Promise<void> {
   `;
   await attachBeamTriggers(sql, schema, rows.map((r) => r.table_name));
   beamEnsured.add(schema);
+}
+
+/** Ensure mandates table exists for existing projects. Idempotent + cached. */
+const mandatesEnsured = new Set<string>();
+export async function ensureMandatesTable(schema: string): Promise<void> {
+  if (!isValidSchemaName(schema)) throw new Error("invalid schema");
+  if (mandatesEnsured.has(schema)) return;
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS "${schema}".mandates (
+      id              bigserial primary key,
+      kind            text not null,
+      title           text not null,
+      intent          jsonb not null,
+      conditions      jsonb default '{}'::jsonb,
+      spend_cap_usdc  numeric(20,6),
+      risk_profile    jsonb default '{}'::jsonb,
+      wallet_provider text not null default 'coinbase_smart',
+      status          text not null default 'pending',
+      tx_hash         text,
+      gas_used        bigint,
+      expires_at      timestamptz,
+      created_at      timestamptz default now(),
+      armed_at        timestamptz,
+      triggered_at    timestamptz,
+      executed_at     timestamptz,
+      last_error      text
+    );
+    CREATE INDEX IF NOT EXISTS mandates_status_idx  ON "${schema}".mandates (status);
+    CREATE INDEX IF NOT EXISTS mandates_kind_idx    ON "${schema}".mandates (kind);
+    CREATE INDEX IF NOT EXISTS mandates_created_idx ON "${schema}".mandates (created_at desc);
+  `);
+  mandatesEnsured.add(schema);
 }
 
 /**

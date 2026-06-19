@@ -9,24 +9,27 @@ const APPLY_URL      = "https://link.metamask.io/card-onboarding";
  */
 export function MetaMaskLanding() {
   const [copied, setCopied] = useState(false);
-  const codeBlock = `await mneme.mandates.create({
+  const codeBlock = `// 1. write the mandate
+const m = await mneme.mandates.create({
   kind:  "swap",
   title: "auto-DCA into MNEME on a 5% dip",
-  intent: {
-    from_token: "USDC",
-    to_token:   "MNEME",
-    amount_usdc: 100,
-  },
-  conditions: {
-    when: "on_event",
-    spec: { table: "mneme_prices", op: "lt", value: 0.10 },
-  },
+  intent:     { from_token: "USDC", to_token: "MNEME", amount_usdc: 100 },
+  conditions: { when: "on_event", spec: { table: "mneme_prices", op: "lt", value: 0.10 } },
   spend_cap_usdc: 1000,
-  risk_profile: {
-    max_slippage:    0.01,
-    allowed_protocols: ["uniswap-v3"],
-  },
+  risk_profile:   { max_slippage: 0.01, allowed_protocols: ["uniswap-v3"] },
   wallet_provider: "metamask",
+});
+
+// 2. compile to ERC-7715 wallet_requestExecutionPermissions
+const { jsonrpc } = await mneme.mandates.toErc7715(m.id);
+
+// 3. ship it to the wallet
+const response = await window.ethereum.request(jsonrpc);
+
+// 4. persist the granted delegation context for ERC-7710 redemption
+await mneme.mandates.grant(m.id, {
+  context:           response.context,
+  delegationManager: response.delegationManager,
 });`;
 
   const copy = () => {
@@ -59,9 +62,19 @@ export function MetaMaskLanding() {
 
       {/* ────── hero ──────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-6 md:px-10 py-16 md:py-24 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold-300/10 border border-gold-300/30 mb-6 text-[11px] uppercase tracking-[0.2em] text-gold-300">
-          <span className="w-1.5 h-1.5 rounded-full bg-gold-300 shadow-[0_0_8px_rgba(212,175,55,0.7)]"></span>
-          ready for MetaMask Agentic Wallet
+        <div className="inline-flex flex-wrap items-center gap-2 mb-6 justify-center">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold-300/10 border border-gold-300/30 text-[11px] uppercase tracking-[0.2em] text-gold-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-gold-300 shadow-[0_0_8px_rgba(212,175,55,0.7)]"></span>
+            MetaMask Agentic Wallet ready
+          </span>
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-ink-950 border border-ink-800 text-[11px] uppercase tracking-[0.2em] text-ink-300">
+            ERC-7715 ·
+            <a href="https://eips.ethereum.org/EIPS/eip-7715" target="_blank" rel="noreferrer" className="hover:text-marble-100 normal-case lowercase">eip ↗</a>
+          </span>
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-ink-950 border border-ink-800 text-[11px] uppercase tracking-[0.2em] text-ink-300">
+            ERC-7710 ·
+            <a href="https://eips.ethereum.org/EIPS/eip-7710" target="_blank" rel="noreferrer" className="hover:text-marble-100 normal-case lowercase">eip ↗</a>
+          </span>
         </div>
         <h1 className="text-4xl md:text-6xl font-semibold leading-[1.05] tracking-tight max-w-4xl mx-auto">
           The <span className="text-gold-300">memory + intent layer</span><br />
@@ -107,8 +120,8 @@ export function MetaMaskLanding() {
             number="02"
             title="MetaMask Agentic Wallet — Execution"
             color="purple"
-            body="Onchain-enforced guardrails. Spend limits, allowlisted protocols, risk profile. Transaction Shield (Blockaid) + MEV protection + simulation. Swaps, perps, prediction markets, LP, staking — 25+ EVM chains and HyperLiquid."
-            pills={["Transaction Shield", "guardrails", "25+ chains", "Blockaid", "MEV protection"]}
+            body="Onchain-enforced guardrails via ERC-7715 wallet_requestExecutionPermissions + ERC-7710 redeemDelegations. Spend limits, allowlisted protocols, risk profile, all standards-shaped. Transaction Shield (Blockaid) + MEV protection + simulation. Swaps, perps, prediction markets, LP, staking — 25+ EVM chains and HyperLiquid."
+            pills={["ERC-7715", "ERC-7710", "Transaction Shield", "guardrails", "25+ chains", "Blockaid"]}
           />
           <Arrow label="write-back: every tx logged as an event row" />
           <Layer
@@ -140,7 +153,7 @@ export function MetaMaskLanding() {
 {codeBlock}
           </pre>
           <div className="mt-4 text-xs text-ink-400 leading-relaxed">
-            Mneme stores the mandate. When <span className="font-mono text-gold-300">mneme_prices</span> shows MNEME below the threshold via Mneme Streams, the worker triggers MetaMask Agentic Wallet. MetaMask enforces the spend cap, slippage, and protocol allowlist, runs the swap through Transaction Shield, and writes the tx hash back as an executed mandate row.
+            The mandate's <span className="font-mono text-gold-300">risk_profile</span> + <span className="font-mono text-gold-300">spend_cap_usdc</span> compile to a spec-shaped <a href="https://eips.ethereum.org/EIPS/eip-7715" target="_blank" rel="noreferrer" className="text-gold-300 hover:text-gold-200 underline underline-offset-2">ERC-7715</a> <span className="font-mono text-gold-300">wallet_requestExecutionPermissions</span> request. MetaMask grants a delegation; Mneme stores its <span className="font-mono text-gold-300">context</span> + <span className="font-mono text-gold-300">delegationManager</span> address. When Mneme Streams trips the condition, the worker calls <a href="https://eips.ethereum.org/EIPS/eip-7710" target="_blank" rel="noreferrer" className="text-gold-300 hover:text-gold-200 underline underline-offset-2">ERC-7710</a> <span className="font-mono text-gold-300">redeemDelegations</span> with that context — MetaMask enforces guardrails onchain, writes the tx hash back as an executed mandate row.
           </div>
         </div>
       </section>

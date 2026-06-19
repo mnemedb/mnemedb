@@ -226,6 +226,38 @@ export class Mneme {
 
     delete: (id: number) =>
       this.request<{ ok: true; id: number }>("DELETE", `/v1/mandates/${id}`),
+
+    /**
+     * Compile a mandate into an ERC-7715 wallet_requestExecutionPermissions
+     * JSON-RPC payload. Drop the returned `jsonrpc` blob straight into
+     * `provider.request(...)` on a MetaMask Agentic Wallet (or any
+     * EIP-7715-compliant wallet).
+     */
+    toErc7715: (id: number, opts?: { agent?: string; chain_id?: number }) => {
+      const q = new URLSearchParams();
+      if (opts?.agent)    q.set("agent",    opts.agent);
+      if (opts?.chain_id) q.set("chain_id", String(opts.chain_id));
+      return this.request<{
+        mandate_id: number;
+        chain_id:   number;
+        agent:      string;
+        spec:       string;
+        spec_url:   string;
+        method:     string;
+        params:     unknown[];
+        jsonrpc:    { jsonrpc: "2.0"; id: number; method: string; params: unknown[] };
+      }>("GET", `/v1/mandates/${id}/erc7715${q.toString() ? `?${q}` : ""}`);
+    },
+
+    /**
+     * Persist the ERC-7715 response (`context` + `delegationManager`) on
+     * the mandate so the worker can later call ERC-7710 `redeemDelegations`.
+     */
+    grant: (id: number, args: { context: string; delegationManager: string }) =>
+      this.request<{
+        ok: true; id: number; status: string;
+        permission_context: string; delegation_manager: string; note: string;
+      }>("POST", `/v1/mandates/${id}/grant`, args),
   };
 
   /**

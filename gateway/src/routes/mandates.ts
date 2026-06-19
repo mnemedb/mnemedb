@@ -21,6 +21,7 @@
  */
 import { Hono } from "hono";
 import { sql, ensureMandatesTable } from "../db";
+import { mandateToErc7715, type Address } from "../erc7715";
 
 const route = new Hono();
 
@@ -199,6 +200,110 @@ route.delete("/:id", async (c) => {
   if (rows.length === 0)
     return c.json({ error: "not found or already executed (cannot delete)" }, 404);
   return c.json({ ok: true, id });
+});
+
+// ─── ERC-7710 / ERC-7715 ─────────────────────────────────────────────────
+/**
+ * GET /v1/mandates/:id/erc7715
+ *
+ * Returns a ready-to-send wallet_requestExecutionPermissions JSON-RPC
+ * `params` array compiled from the mandate's risk_profile + spend cap +
+ * expiry. Pass `?agent=0x…` to set the redeemer; defaults to the project
+ * owner wallet.
+ *
+ * Per ERC-7715 spec — https://eips.ethereum.org/EIPS/eip-7715
+ *
+ * Response also includes the spec-shaped JSON-RPC envelope so a frontend
+ * can pass it straight to `provider.request(...)`.
+ */
+route.get("/:id/erc7715", async (c) => {
+  const project = c.get("project");
+  await ensureMandatesTable(project.schema_name);
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: "invalid id" }, 400);
+
+  const rows = await sql.unsafe(
+    `SELECT kind, intent, spend_cap_usdc, risk_profile, expires_at
+     FROM "${project.schema_name}".mandates WHERE id = $1 LIMIT 1`,
+    [id],
+  ) as unknown as Array<{
+    kind: string; intent: Record<string, unknown>;
+    spend_cap_usdc: string | null; risk_profile: Record<string, unknown>;
+    expires_at: Date | null;
+  }>;
+  if (rows.length === 0) return c.json({ error: "not found" }, 404);
+  const mandate = rows[0]!;
+
+  const agentParam = c.req.query("agent");
+  const agent = (agentParam && /^0x[0-9a-fA-F]{40}$/.test(agentParam))
+    ? (agentParam.toLowerCase() as Address)
+    : (project.owner_wallet.toLowerCase() as Address);
+  const chainId = Number(c.req.query("chain_id") ?? 8453);
+
+  const request = mandateToErc7715(mandate, agent, { chainId });
+
+  // Persist the compiled request on the mandate so wallets / workers can re-fetch
+  await sql.unsafe(
+    `UPDATE "${project.schema_name}".mandates
+     SET erc7715_permissions = $1::jsonb
+     WHERE id = $2`,
+    [JSON.stringify(request), id],
+  );
+
+  return c.json({
+    mandate_id: id,
+    chain_id:   chainId,
+    agent,
+    spec:       "ERC-7715",
+    spec_url:   "https://eips.ethereum.org/EIPS/eip-7715",
+    method:     "wallet_requestExecutionPermissions",
+    params:     request,
+    jsonrpc: {
+      jsonrpc: "2.0",
+      id:      1,
+      method:  "wallet_requestExecutionPermissions",
+      params:  request,
+    },
+  });
+});
+
+/**
+ * POST /v1/mandates/:id/grant
+ *
+ * Store the ERC-7715 response (the `context` blob + `delegationManager`)
+ * so that ERC-7710 `redeemDelegations` can later be called by the worker.
+ */
+route.post("/:id/grant", async (c) => {
+  const project = c.get("project");
+  await ensureMandatesTable(project.schema_name);
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: "invalid id" }, 400);
+
+  let body: { context?: string; delegationManager?: string } = {};
+  try { body = JSON.parse(c.get("bodyText") || "{}"); } catch { /* ok */ }
+  const ctx = (body.context ?? "").trim();
+  const dm  = (body.delegationManager ?? "").trim();
+  if (!/^0x[0-9a-fA-F]+$/.test(ctx))                 return c.json({ error: "invalid context (must be 0x hex)" }, 400);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(dm))               return c.json({ error: "invalid delegationManager address" }, 400);
+
+  const rows = await sql.unsafe(
+    `UPDATE "${project.schema_name}".mandates
+     SET permission_context = $1, delegation_manager = $2
+     WHERE id = $3 AND status IN ('pending','armed')
+     RETURNING id, status`,
+    [ctx, dm.toLowerCase(), id],
+  ) as unknown as Array<{ id: number; status: string }>;
+  if (rows.length === 0)
+    return c.json({ error: "not found or not in pending/armed state" }, 404);
+
+  return c.json({
+    ok:                 true,
+    id,
+    status:             rows[0]!.status,
+    permission_context: ctx,
+    delegation_manager: dm,
+    note:               "context stored — ERC-7710 redeemDelegations can be called by the worker at execution time",
+  });
 });
 
 export { route as mandatesRoute };

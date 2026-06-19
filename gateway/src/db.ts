@@ -586,6 +586,11 @@ async function provisionDefaultTables(tx: postgres.TransactionSql, schema: strin
       spend_cap_usdc  numeric(20,6),
       risk_profile    jsonb default '{}'::jsonb,      -- {max_slippage, allowed_protocols, blocked_addresses, ...}
       wallet_provider text not null default 'coinbase_smart',  -- 'metamask' | 'coinbase_smart' | 'privy' | 'custom'
+      -- ERC-7715 wallet_requestExecutionPermissions request payload (array per spec).
+      erc7715_permissions jsonb,
+      -- ERC-7715 response context → fed into ERC-7710 redeemDelegations at execute time.
+      permission_context  text,
+      delegation_manager  text,
       status          text not null default 'pending',         -- 'pending' | 'armed' | 'triggered' | 'executed' | 'failed' | 'cancelled'
       tx_hash         text,
       gas_used        bigint,
@@ -652,24 +657,32 @@ export async function ensureMandatesTable(schema: string): Promise<void> {
   if (mandatesEnsured.has(schema)) return;
   await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS "${schema}".mandates (
-      id              bigserial primary key,
-      kind            text not null,
-      title           text not null,
-      intent          jsonb not null,
-      conditions      jsonb default '{}'::jsonb,
-      spend_cap_usdc  numeric(20,6),
-      risk_profile    jsonb default '{}'::jsonb,
-      wallet_provider text not null default 'coinbase_smart',
-      status          text not null default 'pending',
-      tx_hash         text,
-      gas_used        bigint,
-      expires_at      timestamptz,
-      created_at      timestamptz default now(),
-      armed_at        timestamptz,
-      triggered_at    timestamptz,
-      executed_at     timestamptz,
-      last_error      text
+      id                  bigserial primary key,
+      kind                text not null,
+      title               text not null,
+      intent              jsonb not null,
+      conditions          jsonb default '{}'::jsonb,
+      spend_cap_usdc      numeric(20,6),
+      risk_profile        jsonb default '{}'::jsonb,
+      wallet_provider     text not null default 'coinbase_smart',
+      erc7715_permissions jsonb,
+      permission_context  text,
+      delegation_manager  text,
+      status              text not null default 'pending',
+      tx_hash             text,
+      gas_used            bigint,
+      expires_at          timestamptz,
+      created_at          timestamptz default now(),
+      armed_at            timestamptz,
+      triggered_at        timestamptz,
+      executed_at         timestamptz,
+      last_error          text
     );
+    -- For projects that had the pre-ERC-7715 mandates table, ALTER ADD MISSING cols.
+    ALTER TABLE "${schema}".mandates
+      ADD COLUMN IF NOT EXISTS erc7715_permissions jsonb,
+      ADD COLUMN IF NOT EXISTS permission_context  text,
+      ADD COLUMN IF NOT EXISTS delegation_manager  text;
     CREATE INDEX IF NOT EXISTS mandates_status_idx  ON "${schema}".mandates (status);
     CREATE INDEX IF NOT EXISTS mandates_kind_idx    ON "${schema}".mandates (kind);
     CREATE INDEX IF NOT EXISTS mandates_created_idx ON "${schema}".mandates (created_at desc);

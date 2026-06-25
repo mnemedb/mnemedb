@@ -70,11 +70,38 @@ projectsPublic.post("/", async (c) => {
       session: { access_token, expires_at },
     });
   } catch (e) {
-    const msg = (e as Error).message;
-    const conflict = /unique|duplicate|already/i.test(msg);
-    return c.json({ error: msg }, (conflict ? 409 : 500) as StatusCode);
+    const err  = e as Error & { code?: string; constraint_name?: string };
+    const msg  = err.message ?? "create failed";
+    // Postgres unique violation: code 23505. Also catch via constraint name or
+    // a string match in the message — different DB libs surface it differently.
+    const isHandleConflict =
+      err.code === "23505" ||
+      /unique|duplicate|already exists/i.test(msg) ||
+      (err.constraint_name?.includes("handle") ?? false);
+
+    if (isHandleConflict) {
+      return c.json({
+        error: `handle "${handle}" is already taken — pick another, or sign in with the wallet that originally created it`,
+        handle_taken: true,
+        try_handles: suggestHandles(handle),
+      }, 409);
+    }
+    console.error("[projects.create] unexpected error:", err);
+    return c.json({ error: msg }, 500 as StatusCode);
   }
 });
+
+/** Suggest a few alternative handles when the requested one is taken. */
+function suggestHandles(taken: string): string[] {
+  const base = taken.toLowerCase().slice(0, 28);
+  const rand = () => Math.random().toString(36).slice(2, 5);
+  return [
+    `${base}_${rand()}`,
+    `${base}${Math.floor(Math.random() * 90 + 10)}`,
+    `${base}_one`,
+    `the_${base}`,
+  ].filter((h) => /^[a-z0-9_]{3,32}$/.test(h)).slice(0, 4);
+}
 
 // ---------------------------------------------------------------------------
 // AUTHED: GET /v1/projects/me  — return current project info (no secrets).

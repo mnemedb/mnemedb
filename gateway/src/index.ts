@@ -57,16 +57,23 @@ app.route("/v1/mandates",     mandatesRoute);
 app.route("/v1/stats",       statsRoute);
 app.route("/v1/projects/me", projectsMe);
 
-await initDb();
+// Defensive boot — if any migration or worker init fails, log loudly but
+// keep the HTTP server alive so /health and existing routes still answer.
+try {
+  await initDb();
+  console.log("[boot] initDb ok");
+} catch (e) {
+  console.error("[boot] initDb FAILED — gateway will start anyway, some endpoints may 500:", (e as Error).message);
+}
 
-// Mneme Live · chain-streams worker (polls Base, writes events into user schemas)
-startChainStreamsWorker();
+try { startChainStreamsWorker(); console.log("[boot] chainStreamsWorker started"); }
+catch (e) { console.error("[boot] chainStreamsWorker failed:", (e as Error).message); }
 
-// Mneme Dreams · async LLM reflection (writes daily synthesis rows per project)
-startDreamsWorker();
+try { startDreamsWorker(); console.log("[boot] dreamsWorker started"); }
+catch (e) { console.error("[boot] dreamsWorker failed:", (e as Error).message); }
 
-// Mneme Beam · LISTEN hub (fans out NOTIFY events to SSE subscribers)
-startBeamHub();
+try { startBeamHub(); console.log("[boot] beamHub started"); }
+catch (e) { console.error("[boot] beamHub failed:", (e as Error).message); }
 
 const port = Number(process.env.PORT ?? 8787);
 console.log(`mneme-gateway listening on :${port}`);

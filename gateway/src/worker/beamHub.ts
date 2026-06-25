@@ -54,11 +54,10 @@ async function runHub() {
   while (started) {
     try {
       listenSql = postgres(DATABASE_URL!, {
-        max:                    1,
-        idle_timeout:           0,           // never close
-        max_lifetime:           60 * 30,     // recycle every 30 min
-        connect_timeout:        20,
-        publications:           "",          // no logical pub needed
+        max:             1,
+        idle_timeout:    0,           // never close
+        max_lifetime:    60 * 30,     // recycle every 30 min
+        connect_timeout: 20,
       });
 
       await listenSql.listen("mneme_beam", (payloadStr) => {

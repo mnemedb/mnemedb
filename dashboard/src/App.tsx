@@ -12,6 +12,7 @@ import { DreamsView } from "./components/DreamsView";
 import { MeshView } from "./components/MeshView";
 import { MandatesView } from "./components/MandatesView";
 import { MetaMaskLanding } from "./components/MetaMaskLanding";
+import { MnemeCrystal } from "./components/MnemeCrystal";
 import { Docs } from "./components/Docs";
 import { Buy } from "./components/Buy";
 import { SettingsView } from "./components/SettingsView";
@@ -34,6 +35,11 @@ export function App() {
   // MetaMask landing — public positioning page
   if (typeof window !== "undefined" && window.location.pathname.startsWith("/metamask")) {
     return <MetaMaskLanding />;
+  }
+
+  // Mneme Crystal — public agent profile at /m/<handle>
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/m/")) {
+    return <MnemeCrystal />;
   }
 
   const { ready, authenticated } = usePrivy();

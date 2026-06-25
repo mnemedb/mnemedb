@@ -14,6 +14,7 @@ export default defineConfig({
                 docs: resolve(__dirname, "docs/index.html"),
                 buy: resolve(__dirname, "buy/index.html"),
                 metamask: resolve(__dirname, "metamask/index.html"),
+                crystal: resolve(__dirname, "m/index.html"),
             },
         },
     },

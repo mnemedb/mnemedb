@@ -20,6 +20,7 @@ import { dreamsRoute } from "./routes/dreams";
 import { beamRoute } from "./routes/beam";
 import { meshRoute } from "./routes/mesh";
 import { mandatesRoute } from "./routes/mandates";
+import { profileRoute } from "./routes/profile";
 import { startChainStreamsWorker } from "./worker/chainStreams";
 import { startDreamsWorker } from "./worker/dreams";
 import { startBeamHub } from "./worker/beamHub";
@@ -35,6 +36,7 @@ app.get("/health", (c) => c.json({ ok: true }));
 // PUBLIC endpoints — typed-data signature instead of session.
 app.route("/projects", projectsPublic);   // CreateProject sig → project + session
 app.route("/sessions", sessionsRoute);    // MnemeSession sig  → session
+app.route("/profile",  profileRoute);     // public agent profiles — Mneme Crystal
 
 // AUTHED endpoints — require Bearer session OR per-request EIP-712 sig.
 app.use("/v1/*", authMiddleware);

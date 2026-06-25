@@ -574,9 +574,9 @@ async function provisionDefaultTables(tx: postgres.TransactionSql, schema: strin
 
     -- Mneme Mandate — declarative agent intents. Wallet-agnostic with
     -- adapter routing (metamask, coinbase_smart, privy, custom). Worker
-    -- evaluates `conditions` against the schema (e.g. Streams tables);
-    -- when triggered, the configured wallet adapter executes the intent
-    -- and writes back to `tx_hash` + status.
+    -- evaluates conditions against the schema; when triggered, the
+    -- configured wallet adapter executes the intent and writes back
+    -- the tx_hash + status.
     CREATE TABLE IF NOT EXISTS "${schema}".mandates (
       id              bigserial primary key,
       kind            text not null,                  -- 'swap' | 'send' | 'stake' | 'lp' | 'perp' | 'predict' | 'mint' | 'vote'

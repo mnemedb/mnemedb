@@ -366,6 +366,109 @@ async function handleSlash(
         return "ok";
       }
 
+      // ─── Mneme Chronos · time-travel + provable memory ──────────────
+      case "rewind": {
+        // /rewind [table] [at]   e.g. /rewind memories 7d · /rewind entities 2026-06-01
+        const [tArg, atArg] = arg.split(/\s+/);
+        const t0 = Date.now();
+        const r = await m.chronos.rewind({ table: tArg || "memories", at: atArg || "24h", limit: 20 });
+        console.log("");
+        console.log(`  ${gold("⧗ rewind")} ${ink("·")} ${goldSoft(r.table)} ${ink("as of")} ${marble(r.as_of)}`);
+        console.log("");
+        if (r.row_count === 0) {
+          console.log(`  ${inkDim("(no rows existed at that point)")}`);
+        } else {
+          const cols = Object.keys(r.rows[0]!).filter((c) => !c.startsWith("_journal")).slice(0, 5);
+          console.log(renderTable(r.rows as Record<string, unknown>[], cols));
+        }
+        console.log(`  ${ok("✓")} ${inkDim(`${r.row_count} rows · ${Date.now() - t0}ms`)}`);
+        return "ok";
+      }
+
+      case "diff": {
+        // /diff [table] [from]   e.g. /diff memories 7d
+        const [tArg, fromArg] = arg.split(/\s+/);
+        const r = await m.chronos.diff({ table: tArg || "memories", from: fromArg || "7d" });
+        console.log("");
+        console.log(`  ${gold("Δ")} ${goldSoft(r.table)} ${inkDim(`· ${r.from} → ${r.to}`)}`);
+        console.log(`  ${ok("+" + r.inserted)} ${inkDim("inserted")}   ${goldSoft("~" + r.updated)} ${inkDim("updated")}   ${err("-" + r.deleted)} ${inkDim("deleted")}`);
+        if (r.recent.length > 0) {
+          console.log("");
+          for (const e of r.recent.slice(0, 8)) {
+            const opC = e.op === "INSERT" ? ok : e.op === "UPDATE" ? goldSoft : err;
+            console.log(`  ${inkDim("#" + e.id)}  ${opC(e.op.padEnd(7))}  ${gold(r.table)} ${marble("#" + e.row_id)}  ${inkDim(new Date(e.at).toLocaleString())}`);
+          }
+        }
+        return "ok";
+      }
+
+      case "journal": {
+        const limit = arg ? Math.min(Number(arg) || 20, 100) : 20;
+        const r = await m.chronos.journal({ limit });
+        console.log("");
+        if (r.count === 0) { console.log(`  ${inkDim("journal is empty")}`); return "ok"; }
+        console.log(renderTable(
+          r.entries.map((e) => ({
+            id: e.id, table: e.tbl, op: e.op, row: "#" + e.row_id,
+            at: new Date(e.at).toLocaleString(),
+          })),
+          ["id", "table", "op", "row", "at"],
+        ));
+        return "ok";
+      }
+
+      case "anchors": {
+        const r = await m.chronos.anchors();
+        console.log("");
+        if (r.count === 0) {
+          console.log(`  ${inkDim("no anchors yet — run /anchor to Merkle-root your journal")}`);
+          return "ok";
+        }
+        console.log(renderTable(
+          r.anchors.map((a) => ({
+            id:     a.id,
+            range:  `${a.from_id}–${a.to_id}`,
+            leaves: a.leaf_count,
+            root:   a.merkle_root.slice(0, 16) + "…",
+            onchain: a.tx_hash ? "✓ " + a.tx_hash.slice(0, 10) + "…" : "—",
+            at:     new Date(a.anchored_at).toLocaleString(),
+          })),
+          ["id", "range", "leaves", "root", "onchain", "at"],
+        ));
+        return "ok";
+      }
+
+      case "anchor": {
+        process.stdout.write(`  ${dim("anchoring…")}`);
+        const r = await m.chronos.anchor();
+        process.stdout.write("\r" + " ".repeat(20) + "\r");
+        if (!r.ok) { console.log(`  ${inkDim(r.reason ?? "nothing to anchor")}`); return "ok"; }
+        const a = r.anchor!;
+        console.log("");
+        console.log(`  ${ok("✓")} ${marble(`anchor #${a.id}`)} ${inkDim(`· ${a.leaf_count} journal entries`)}`);
+        console.log(`  ${ink("root    ")} ${gold(a.merkle_root)}`);
+        console.log(`  ${ink("onchain ")} ${a.onchain ? ok("✓ " + a.tx_hash) : inkDim("local only (gateway has no anchor key)")}`);
+        return "ok";
+      }
+
+      case "prove": {
+        const id = arg.trim();
+        if (!/^\d+$/.test(id)) {
+          console.log(`  ${err("✗")} usage: /prove <journal_id>   (find ids via /journal)`);
+          return "ok";
+        }
+        const p = await m.chronos.prove(id);
+        console.log("");
+        console.log(`  ${gold("𝔪")} ${marble(`proof for journal entry #${p.journal_id}`)}`);
+        console.log(`  ${ink("leaf     ")} ${dim(p.leaf.slice(0, 32) + "…")}`);
+        console.log(`  ${ink("path     ")} ${marble(p.path.length + " siblings")}`);
+        console.log(`  ${ink("root     ")} ${gold(p.merkle_root.slice(0, 32) + "…")}`);
+        console.log(`  ${ink("anchor   ")} ${marble("#" + p.anchor_id)} ${inkDim("· " + new Date(p.anchored_at).toLocaleString())}`);
+        console.log(`  ${ink("onchain  ")} ${p.tx_hash ? ok("✓ basescan.org/tx/" + p.tx_hash.slice(0, 14) + "…") : inkDim("local anchor")}`);
+        console.log(`  ${ink("verified ")} ${p.verified ? ok("✓ path folds to anchored root") : err("✗ MISMATCH")}`);
+        return "ok";
+      }
+
       // ─── Mneme Mandate · declarative agent intents ──────────────────
       case "mandate":
       case "mandates": {

@@ -21,9 +21,11 @@ import { beamRoute } from "./routes/beam";
 import { meshRoute } from "./routes/mesh";
 import { mandatesRoute } from "./routes/mandates";
 import { profileRoute } from "./routes/profile";
+import { chronosRoute } from "./routes/chronos";
 import { startChainStreamsWorker } from "./worker/chainStreams";
 import { startDreamsWorker } from "./worker/dreams";
 import { startBeamHub } from "./worker/beamHub";
+import { startChronosWorker } from "./worker/chronosWorker";
 
 const app = new Hono();
 
@@ -54,6 +56,7 @@ app.route("/v1/dreams",       dreamsRoute);
 app.route("/v1/beam",         beamRoute);
 app.route("/v1/mesh",         meshRoute);
 app.route("/v1/mandates",     mandatesRoute);
+app.route("/v1/chronos",      chronosRoute);
 app.route("/v1/stats",       statsRoute);
 app.route("/v1/projects/me", projectsMe);
 
@@ -74,6 +77,9 @@ catch (e) { console.error("[boot] dreamsWorker failed:", (e as Error).message); 
 
 try { startBeamHub(); console.log("[boot] beamHub started"); }
 catch (e) { console.error("[boot] beamHub failed:", (e as Error).message); }
+
+try { startChronosWorker(); console.log("[boot] chronosWorker started"); }
+catch (e) { console.error("[boot] chronosWorker failed:", (e as Error).message); }
 
 const port = Number(process.env.PORT ?? 8787);
 console.log(`mneme-gateway listening on :${port}`);

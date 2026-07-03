@@ -16,13 +16,13 @@
     },
     "cli": {
       "name": "mneme-cli",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "bin": {
         "mneme": "./dist/index.js",
       },
       "dependencies": {
         "chalk": "^5.3.0",
-        "mneme-sdk": "^0.11.0",
+        "mneme-sdk": "^0.13.0",
         "viem": "^2.21.0",
       },
       "devDependencies": {
@@ -93,7 +93,7 @@
     },
     "sdk": {
       "name": "mneme-sdk",
-      "version": "0.12.0",
+      "version": "0.13.0",
       "devDependencies": {
         "tsup": "^8.0.0",
         "typescript": "^5.6.0",
@@ -2382,8 +2382,6 @@
     "micro-eth-signer/@noble/hashes": ["@noble/hashes@1.7.1", "", {}, "sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ=="],
 
     "micromatch/picomatch": ["picomatch@2.3.2", "", {}, "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="],
-
-    "mneme-cli/mneme-sdk": ["mneme-sdk@0.11.0", "", { "peerDependencies": { "viem": "^2.21.0" } }, "sha512-Onag8ibqx146A67zXKwk6NGh3BgjhD5l2fhwbKfLZ51bc4DBKQ4K1VyKv3u107ybQRNAUSEArLNqmNDbCNzqWw=="],
 
     "mneme-mcp/mneme-sdk": ["mneme-sdk@0.4.0", "", { "peerDependencies": { "viem": "^2.21.0" } }, "sha512-8n2NIKOyLvj8pOl9w+ogB9D0hX2/yrtYYaJdxdM5/uSuhsF4+51RzTM0BBBH4+iLl/3zeMoDc7OfvHDGZZDiww=="],
 

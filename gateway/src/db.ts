@@ -207,6 +207,45 @@ export async function initDb() {
   await sql`CREATE INDEX IF NOT EXISTS _mneme_mesh_queries_listing_idx ON _mneme_mesh_queries (listing_id, created_at desc)`;
   await sql`CREATE INDEX IF NOT EXISTS _mneme_mesh_queries_consumer_idx ON _mneme_mesh_queries (consumer_wallet, created_at desc)`;
 
+  // ─── Mneme Chronos — journal trigger. Every INSERT/UPDATE/DELETE on a
+  // chronos-enabled table writes a full row snapshot (minus embedding,
+  // which is huge) into the same schema's _journal table. This powers
+  // time-travel queries and Merkle-anchored memory proofs.
+  await sql.unsafe(`
+    CREATE OR REPLACE FUNCTION mneme_journal_write() RETURNS trigger AS $jrnl$
+    DECLARE
+      rid text;
+      payload jsonb;
+    BEGIN
+      IF TG_OP = 'DELETE' THEN
+        rid := COALESCE(OLD.id::text, '');
+        payload := to_jsonb(OLD) - 'embedding';
+      ELSE
+        rid := COALESCE(NEW.id::text, '');
+        payload := to_jsonb(NEW) - 'embedding';
+      END IF;
+      EXECUTE format('INSERT INTO %I._journal (tbl, op, row_id, row_data) VALUES ($1, $2, $3, $4)', TG_TABLE_SCHEMA)
+        USING TG_TABLE_NAME, TG_OP, rid, payload;
+      RETURN COALESCE(NEW, OLD);
+    END;
+    $jrnl$ LANGUAGE plpgsql;
+  `);
+
+  // Anchor registry — one row per Merkle anchor of a schema's journal range.
+  await sql`
+    CREATE TABLE IF NOT EXISTS _mneme_chronos_anchors (
+      id           bigserial PRIMARY KEY,
+      schema_name  text   NOT NULL,
+      from_id      bigint NOT NULL,
+      to_id        bigint NOT NULL,
+      leaf_count   int    NOT NULL,
+      merkle_root  text   NOT NULL,
+      tx_hash      text,
+      anchored_at  timestamptz DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS _mneme_chronos_anchors_schema_idx ON _mneme_chronos_anchors (schema_name, to_id DESC)`;
+
   // ─── Mneme Beam — single global NOTIFY function used by every
   // beam-enabled table. Payload: { schema, table, op, id, ts }.
   // One Postgres channel ("mneme_beam") is used for everything; the SSE
@@ -609,6 +648,80 @@ async function provisionDefaultTables(tx: postgres.TransactionSql, schema: strin
   await attachBeamTriggers(tx, schema, [
     "memories", "documents", "events", "entities", "relations", "dreams",
   ]);
+  // Mneme Chronos — journal table + triggers on every id-bearing table.
+  await createJournalTable(tx, schema);
+  await attachJournalTriggers(tx, schema, CHRONOS_TABLES);
+}
+
+/** Tables covered by the Chronos journal (must have an id column — kvs excluded). */
+export const CHRONOS_TABLES = [
+  "memories", "documents", "events", "entities", "relations", "dreams", "mandates",
+] as const;
+
+async function createJournalTable(
+  exec: { unsafe: (q: string) => Promise<unknown> },
+  schema: string,
+): Promise<void> {
+  await exec.unsafe(`
+    CREATE TABLE IF NOT EXISTS "${schema}"._journal (
+      id        bigserial PRIMARY KEY,
+      tbl       text NOT NULL,
+      op        text NOT NULL,
+      row_id    text NOT NULL,
+      row_data  jsonb,
+      at        timestamptz DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS _journal_tbl_row_idx ON "${schema}"._journal (tbl, row_id, at DESC);
+    CREATE INDEX IF NOT EXISTS _journal_at_idx      ON "${schema}"._journal (at DESC);
+  `);
+}
+
+/** Attach the shared journal trigger. Idempotent — DROP IF EXISTS then CREATE. */
+export async function attachJournalTriggers(
+  exec: { unsafe: (q: string) => Promise<unknown> },
+  schema: string,
+  tables: readonly string[],
+): Promise<void> {
+  if (!isValidSchemaName(schema)) throw new Error("invalid schema");
+  for (const t of tables) {
+    if (!isValidTableName(t)) continue;
+    await exec.unsafe(`
+      DROP TRIGGER IF EXISTS mneme_journal_trg ON "${schema}"."${t}";
+      CREATE TRIGGER mneme_journal_trg
+        AFTER INSERT OR UPDATE OR DELETE ON "${schema}"."${t}"
+        FOR EACH ROW EXECUTE FUNCTION mneme_journal_write();
+    `);
+  }
+}
+
+/**
+ * Ensure Chronos is live for an existing project: journal table, triggers
+ * on every eligible table that exists, and a one-time SEED backfill so
+ * rewind works immediately with pre-Chronos rows. Idempotent + cached.
+ */
+const chronosEnsured = new Set<string>();
+export async function ensureChronos(schema: string): Promise<void> {
+  if (!isValidSchemaName(schema)) throw new Error("invalid schema");
+  if (chronosEnsured.has(schema)) return;
+  await createJournalTable(sql, schema);
+  const rows = await sql<Array<{ table_name: string }>>`
+    SELECT table_name FROM information_schema.tables
+    WHERE table_schema = ${schema}
+      AND table_name = ANY(${CHRONOS_TABLES as unknown as string[]})
+  `;
+  const present = rows.map((r) => r.table_name);
+  await attachJournalTriggers(sql, schema, present);
+  // SEED backfill — capture current state of each table once, so the
+  // journal covers rows created before Chronos shipped.
+  for (const t of present) {
+    await sql.unsafe(`
+      INSERT INTO "${schema}"._journal (tbl, op, row_id, row_data)
+      SELECT '${t}', 'SEED', s.id::text, to_jsonb(s.*) - 'embedding'
+      FROM "${schema}"."${t}" s
+      WHERE NOT EXISTS (SELECT 1 FROM "${schema}"._journal j WHERE j.tbl = '${t}' LIMIT 1)
+    `);
+  }
+  chronosEnsured.add(schema);
 }
 
 /**

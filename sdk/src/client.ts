@@ -151,6 +151,91 @@ export class Mneme {
   };
 
   /**
+   * Mneme Chronos — time-travel queries + Base-anchored memory proofs.
+   *
+   * Every write to your schema's core tables is journaled (full row
+   * snapshot). Chronos lets you:
+   *   - rewind:  query any table AS OF any timestamp
+   *   - diff:    see exactly what changed in a window
+   *   - anchor:  Merkle-root the journal, optionally posted to Base
+   *   - prove:   get a Merkle path from any journal entry to an anchored
+   *              root — verifiable by anyone. Your agent cannot rewrite
+   *              its past.
+   *
+   * @example
+   * const then = await m.chronos.rewind({ table: "memories", at: "7d" });
+   * const changes = await m.chronos.diff({ table: "entities", from: "24h" });
+   * await m.chronos.anchor();
+   * const proof = await m.chronos.prove(1847);
+   */
+  readonly chronos = {
+    /** Table state AS OF a timestamp (ISO) or shorthand ("24h", "7d"). */
+    rewind: (opts?: { table?: string; at?: string; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (opts?.table) q.set("table", opts.table);
+      if (opts?.at)    q.set("at",    opts.at);
+      if (opts?.limit) q.set("limit", String(opts.limit));
+      return this.request<{
+        table: string; as_of: string; row_count: number;
+        rows: Array<Record<string, unknown>>;
+      }>("GET", `/v1/chronos/rewind${q.toString() ? `?${q}` : ""}`);
+    },
+
+    /** What changed between two points in time. */
+    diff: (opts?: { table?: string; from?: string; to?: string }) => {
+      const q = new URLSearchParams();
+      if (opts?.table) q.set("table", opts.table);
+      if (opts?.from)  q.set("from",  opts.from);
+      if (opts?.to)    q.set("to",    opts.to);
+      return this.request<{
+        table: string; from: string; to: string;
+        inserted: number; updated: number; deleted: number;
+        recent: Array<{ id: string; op: string; row_id: string; row_data: Record<string, unknown>; at: string }>;
+      }>("GET", `/v1/chronos/diff${q.toString() ? `?${q}` : ""}`);
+    },
+
+    /** Raw journal entries, newest first. */
+    journal: (opts?: { table?: string; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (opts?.table) q.set("table", opts.table);
+      if (opts?.limit) q.set("limit", String(opts.limit));
+      return this.request<{
+        count: number;
+        entries: Array<{ id: string; tbl: string; op: string; row_id: string; at: string }>;
+      }>("GET", `/v1/chronos/journal${q.toString() ? `?${q}` : ""}`);
+    },
+
+    /** Merkle-anchor everything unanchored. Posts to Base if the gateway has an anchor key. */
+    anchor: () =>
+      this.request<{
+        ok: boolean; reason?: string;
+        anchor?: {
+          id: number; range: [string, string]; leaf_count: number;
+          merkle_root: string; tx_hash: string | null; onchain: boolean; anchored_at: string;
+        };
+      }>("POST", "/v1/chronos/anchor", {}),
+
+    /** List your anchors. */
+    anchors: () =>
+      this.request<{
+        count: number;
+        anchors: Array<{
+          id: number; from_id: string; to_id: string; leaf_count: number;
+          merkle_root: string; tx_hash: string | null; anchored_at: string;
+        }>;
+      }>("GET", "/v1/chronos/anchors"),
+
+    /** Merkle proof for one journal entry — verifiable against the anchored root. */
+    prove: (journalId: number | string) =>
+      this.request<{
+        journal_id: string; leaf: string;
+        path: Array<{ hash: string; side: "left" | "right" }>;
+        merkle_root: string; anchor_id: number; tx_hash: string | null;
+        anchored_at: string; leaf_count: number; verified: boolean;
+      }>("GET", `/v1/chronos/proof/${journalId}`),
+  };
+
+  /**
    * Mneme Mandate — declarative agent intents stored in your schema.
    *
    * Built for the agent-wallet category (MetaMask Agentic Wallet,

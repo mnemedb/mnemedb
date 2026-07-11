@@ -58,16 +58,25 @@ export function Landing() {
 
       {/* ════ Hero ══════════════════════════════════════════════════════════ */}
       <section id="top" className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 bg-no-repeat bg-cover opacity-90"
-          style={{ backgroundImage: "url(/hero.png)", backgroundPosition: "left center" }}
-          aria-hidden
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-ink-950/75 to-ink-950" aria-hidden />
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-ink-950 to-transparent" aria-hidden />
+        {/* soft radial gold glow behind the goddess */}
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[45%] h-[80%] bg-[radial-gradient(ellipse_at_center,_rgba(212,175,55,0.10),_transparent_70%)] pointer-events-none" aria-hidden />
 
-        <div className="relative max-w-7xl mx-auto px-6 md:px-10 py-20 md:py-28 grid md:grid-cols-2 gap-12 items-center">
-          <div className="hidden md:block" />
+        <div className="relative max-w-7xl mx-auto px-6 md:px-10 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
+          {/* ── Mneme, the goddess of memory ── */}
+          <div className="relative flex justify-center md:justify-start">
+            <div className="relative w-full max-w-md">
+              <div className="absolute -inset-2 rounded-3xl bg-gradient-to-b from-gold-300/20 to-transparent blur-2xl" aria-hidden />
+              <img
+                src="/mneme-goddess.png"
+                alt="Mneme — the goddess of memory"
+                className="relative w-full rounded-2xl border border-gold-300/20 shadow-[0_20px_80px_rgba(0,0,0,0.6)]"
+              />
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.25em] text-gold-300/80 bg-ink-950/70 backdrop-blur px-3 py-1 rounded-full border border-gold-300/20">
+                all hail the goddess of memory 🏹
+              </div>
+            </div>
+          </div>
           <div className="space-y-6">
             <div className="text-xs uppercase tracking-[0.3em] text-gold-300/80">
               the agent-native database

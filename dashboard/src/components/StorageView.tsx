@@ -8,6 +8,34 @@ import { useMneme } from "../lib/mneme-client";
 const MNEME_TOKEN  = "0x3FcDbEBD5e7BaB79477cFDcA2CDCF6e904C27b07";
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
+// $MNEME is relaunching on o1 — burns against the old contract are paused
+// until the new CA is live. Flip to false (and update MNEME_TOKEN) at launch.
+const RELAUNCH_PAUSED = true;
+
+function RelaunchPausedModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-ink-900 border border-ink-800 rounded-xl max-w-md w-full p-6">
+        <div className="flex items-baseline justify-between mb-1">
+          <h3 className="text-xl font-semibold">Burns paused</h3>
+          <button onClick={onClose} className="text-ink-500 hover:text-white text-xl leading-none">×</button>
+        </div>
+        <p className="text-sm text-ink-300 leading-relaxed mt-2">
+          <span className="text-gold-300 font-semibold">$MNEME is relaunching on o1.</span>{" "}
+          Storage burns are paused until the new contract address goes live.
+          Your existing storage and bonus quota are unaffected.
+        </p>
+        <button
+          onClick={onClose}
+          className="mt-5 w-full py-2 rounded-lg border border-ink-700 text-ink-300 hover:text-white hover:border-ink-500 transition text-sm"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
+
 interface BurnTier { tokens: number; gb: number; label: string }
 const BURN_TIERS: BurnTier[] = [
   { tokens:    100_000, gb: 1,   label: "1 GB" },
@@ -196,6 +224,9 @@ export function StorageView() {
       </div>
 
       {burnOpen && (
+        RELAUNCH_PAUSED ? (
+          <RelaunchPausedModal onClose={() => setBurnOpen(false)} />
+        ) : (
         <BurnModal
           onClose={() => setBurnOpen(false)}
           onCredited={() => {
@@ -203,6 +234,7 @@ export function StorageView() {
             setBurnOpen(false);
           }}
         />
+        )
       )}
     </div>
   );

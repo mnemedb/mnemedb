@@ -1,10 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "bun install && bun --filter mneme-dashboard build",
-  "outputDirectory": "dashboard/dist",
   "installCommand": "bun install",
-  "framework": null,
+  "buildCommand": "bun --filter mneme-sdk build && bun --filter mneme-dashboard build",
+  "outputDirectory": "dashboard/dist",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
-    { "source": "/m/(.*)", "destination": "/m/index.html" }
+    { "source": "/api/:path*", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/cron/tick", "schedule": "0 5 * * *" }
   ]
 }

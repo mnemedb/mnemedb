@@ -50,6 +50,11 @@ async function loop() {
   }
 }
 
+/** One iteration — exported for cron-style invocation (Vercel). */
+export async function runDreamsTick(): Promise<void> {
+  return tick();
+}
+
 async function tick() {
   // Ensure column exists once per process lifetime
   await sql`

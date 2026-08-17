@@ -40,6 +40,11 @@ async function loop() {
   }
 }
 
+/** One iteration — exported for cron-style invocation (Vercel). */
+export async function runChronosTick(): Promise<void> {
+  return tick();
+}
+
 async function tick() {
   const projects = await sql<Array<{ schema_name: string }>>`
     SELECT schema_name FROM _mneme_projects ORDER BY id ASC LIMIT 200

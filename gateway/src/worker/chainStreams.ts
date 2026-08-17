@@ -66,6 +66,11 @@ async function loop() {
   }
 }
 
+/** One poll iteration — exported for cron-style invocation (Vercel). */
+export async function runChainStreamsTick(): Promise<void> {
+  return tick();
+}
+
 async function tick(): Promise<void> {
   // Snapshot of active streams joined to their project's schema
   const streams = await sql<StreamRow[]>`

@@ -49,3 +49,6 @@ contracts/broadcast/
 coverage/
 *.tsbuildinfo
 .cache/
+
+.vercel
+.env*

@@ -25,7 +25,7 @@ export function Landing() {
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
           />
           <span className="font-semibold tracking-tight text-lg">Mneme</span>
-          <span className="hidden md:inline text-[10px] uppercase tracking-[0.2em] text-gold-300/60 ml-2 pl-2 border-l border-ink-800">on Robinhood</span>
+          <span className="hidden md:inline text-[10px] uppercase tracking-[0.2em] text-gold-300/60 ml-2 pl-2 border-l border-ink-800">on Base</span>
         </a>
         <div className="flex items-center gap-5 text-sm">
           <span className="hidden lg:inline-flex"><StatusBadge /></span>
@@ -41,8 +41,7 @@ export function Landing() {
             GitHub
           </a>
           <a
-            href="https://fun.noxa.fi"
-            target="_blank" rel="noreferrer"
+            href="/buy"
             className="hidden sm:inline px-3 py-1.5 rounded-lg border border-gold-300/40 text-gold-300 hover:bg-gold-300/10 hover:border-gold-300/70 transition text-sm font-medium"
           >
             Buy $MNEME
@@ -58,25 +57,16 @@ export function Landing() {
 
       {/* ════ Hero ══════════════════════════════════════════════════════════ */}
       <section id="top" className="relative overflow-hidden">
+        <div
+          className="absolute inset-0 bg-no-repeat bg-cover opacity-90"
+          style={{ backgroundImage: "url(/hero.png)", backgroundPosition: "left center" }}
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-ink-950/75 to-ink-950" aria-hidden />
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-ink-950 to-transparent" aria-hidden />
-        {/* soft radial gold glow behind the goddess */}
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[45%] h-[80%] bg-[radial-gradient(ellipse_at_center,_rgba(212,175,55,0.10),_transparent_70%)] pointer-events-none" aria-hidden />
 
-        <div className="relative max-w-7xl mx-auto px-6 md:px-10 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
-          {/* ── Mneme, the goddess of memory ── */}
-          <div className="relative flex justify-center md:justify-start">
-            <div className="relative w-full max-w-md">
-              <div className="absolute -inset-2 rounded-3xl bg-gradient-to-b from-gold-300/20 to-transparent blur-2xl" aria-hidden />
-              <img
-                src="/mneme-goddess.png"
-                alt="Mneme — the goddess of memory"
-                className="relative w-full rounded-2xl border border-gold-300/20 shadow-[0_20px_80px_rgba(0,0,0,0.6)]"
-              />
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.25em] text-gold-300/80 bg-ink-950/70 backdrop-blur px-3 py-1 rounded-full border border-gold-300/20">
-                all hail the goddess of memory 🏹
-              </div>
-            </div>
-          </div>
+        <div className="relative max-w-7xl mx-auto px-6 md:px-10 py-20 md:py-28 grid md:grid-cols-2 gap-12 items-center">
+          <div className="hidden md:block" />
           <div className="space-y-6">
             <div className="text-xs uppercase tracking-[0.3em] text-gold-300/80">
               the agent-native database
@@ -112,9 +102,9 @@ export function Landing() {
           <div className="border-t border-ink-900 pt-6 flex flex-wrap items-center gap-x-8 gap-y-3 justify-between text-xs text-ink-500">
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
-              <span>Live on <span className="text-ink-300">Robinhood Chain</span></span>
+              <span>Live on <span className="text-ink-300">Base mainnet</span></span>
             </span>
-            <span><span className="text-gold-300/80 font-mono">$MNEME</span> live · <span className="font-mono text-ink-300">0x50a9…f129</span></span>
+            <span><span className="text-gold-300/80 font-mono">$MNEME</span> live · <span className="font-mono text-ink-300">0x3FcD…7b07</span></span>
             <span>15 MCP tools · <span className="text-ink-300">npm i mneme-sdk</span></span>
             <span>100 MB free storage · <span className="text-ink-300">cdn.mnemedb.dev</span></span>
             <span>4-second wallet onboarding</span>
@@ -133,7 +123,7 @@ export function Landing() {
             <span className="text-gold-300">Scale to a million wallets.</span>
           </h2>
           <p className="text-ink-400 max-w-2xl mb-12 leading-relaxed">
-            Mneme is the agent-native development platform on Robinhood Chain. Start your
+            Mneme is the agent-native development platform on Base. Start your
             project with a real Postgres schema, wallet auth, instant REST,
             vector search, wallet-bound storage, MCP-native agent tools, and
             scoped API keys for B2B2C distribution.
@@ -210,7 +200,7 @@ export function Landing() {
             <FeatureCard
               icon={<StorageIcon />}
               title="Wallet-bound Storage"
-              desc="100 MB free per wallet on Cloudflare R2 (served from cdn.mnemedb.dev, zero egress). Extend by burning $MNEME — verified on-chain."
+              desc="100 MB free per wallet on Cloudflare R2 (served from cdn.mnemedb.dev, zero egress). Extend by burning $MNEME on Base — verified on-chain."
               accents={["public + private", "Presigned URLs", "$MNEME burn → GB"]}
               visual={
                 <div className="space-y-2">
@@ -272,7 +262,7 @@ export function Landing() {
             <FeatureCard
               icon={<RealtimeIcon />}
               title="Realtime + onchain"
-              desc="Coming: Postgres LISTEN/NOTIFY subscriptions over WebSocket, and the onchain handle registry (AgentRegistry.sol onchain)."
+              desc="Coming: Postgres LISTEN/NOTIFY subscriptions over WebSocket, and the onchain handle registry (AgentRegistry.sol already deployed on Base)."
               accents={["Phase 2 · 4-8 weeks", "WebSocket pushes", "Onchain handles"]}
               visual={
                 <div className="space-y-1.5 text-[10px]">
@@ -435,7 +425,7 @@ const { public_url } = await m.storage.upload({
           <p className="text-ink-300 leading-relaxed mt-3">
             Every request to the gateway is signed by your wallet (EIP-712).
             EOA sigs are verified with ECDSA; smart-contract wallets verify via
-            ERC-1271 / 6492. Your data lives in a Postgres schema
+            ERC-1271 / 6492 against Base. Your data lives in a Postgres schema
             isolated by your wallet address. No gas, no transactions, no funds
             moved — Mneme only ever asks for message signatures.
           </p>
@@ -471,7 +461,7 @@ const { public_url } = await m.storage.upload({
           <p className="text-xs text-ink-500 mt-6 leading-relaxed max-w-2xl">
             Every burn permanently retires $MNEME from circulation. Real demand
             from real builders → real deflation. Burns are verified on-chain
-            against the onchain receipt — no off-chain trust required.
+            against the Base mainnet receipt — no off-chain trust required.
           </p>
         </div>
       </section>
@@ -549,9 +539,9 @@ const { public_url } = await m.storage.upload({
               public files are served on <code className="font-mono text-gold-300/80">cdn.mnemedb.dev</code>{" "}
               with zero egress fees (Cloudflare anycast). Private files use
               presigned URLs that expire in 15 minutes by default. To extend,
-              burn $MNEME — 100k = 1 GB, 1M = 10 GB, 10M = 100 GB,
+              burn $MNEME on Base — 100k = 1 GB, 1M = 10 GB, 10M = 100 GB,
               each for 30 days. Every burn is verified on-chain against the
-              onchain receipt; nothing off-chain.
+              Base receipt; nothing off-chain.
             </Faq>
           </div>
         </div>
@@ -599,7 +589,7 @@ const { public_url } = await m.storage.upload({
       <footer className="py-12 border-t border-ink-900">
         <div className="max-w-6xl mx-auto px-6 md:px-10 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-ink-500">
           <div className="flex items-center gap-4">
-            <span>Mneme — now on Robinhood Chain.</span>
+            <span>Mneme — built on Base.</span>
             <StatusBadge />
           </div>
           <div className="flex gap-5 flex-wrap justify-center">
@@ -644,7 +634,7 @@ function UseCase({ title, desc }: { title: string; desc: string }) {
 }
 
 /* ─── Top announcement banner — slim, dismissible ──────────────────────── */
-const MNEME_CA = "0x50a9af5DFfbB61f892a4CFF9a105212AF6deF129";
+const MNEME_CA = "0x3FcDbEBD5e7BaB79477cFDcA2CDCF6e904C27b07";
 
 function AnnouncementBar() {
   const KEY = "mneme.banner.dismissed.v1";
@@ -669,22 +659,22 @@ function AnnouncementBar() {
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <span className="text-gold-300 shrink-0">✦</span>
           <span className="text-ink-200 truncate">
-            <span className="font-semibold">🏹 Now live on Robinhood Chain.</span>{" "}
-            <span className="text-ink-400 hidden sm:inline">migrated · $MNEME trading on Noxa</span>
+            <span className="font-semibold">Storage just shipped.</span>{" "}
+            <span className="text-ink-400 hidden sm:inline">100 MB free · burn $MNEME for more</span>
           </span>
-          <a href="https://fun.noxa.fi" target="_blank" rel="noreferrer" className="hidden lg:inline text-gold-300 hover:text-gold-200 underline underline-offset-2 shrink-0">
-            Trade on Noxa →
+          <a href="/docs#storage-overview" className="hidden lg:inline text-gold-300 hover:text-gold-200 underline underline-offset-2 shrink-0">
+            Read more →
           </a>
 
-          {/* CA chip — clickable to Noxa, copy icon next to it */}
+          {/* CA chip — clickable to clanker.world, copy icon next to it */}
           <span className="hidden md:inline-flex items-center gap-1 bg-ink-950/70 border border-ink-800 rounded-full pl-2 pr-1 py-0.5 ml-auto shrink-0">
             <a
-              href="https://fun.noxa.fi"
+              href={`https://clanker.world/clanker/${MNEME_CA}`}
               target="_blank" rel="noreferrer"
               className="text-gold-300 hover:text-gold-200 font-mono text-[10.5px] tracking-tight transition"
-              title="Trade on Noxa"
+              title="View on clanker.world"
             >
-              $MNEME · 0x50a9…f129
+              $MNEME · 0x3FcD…7b07
             </a>
             <button
               onClick={copyCa}
@@ -696,10 +686,9 @@ function AnnouncementBar() {
             </button>
           </span>
 
-          {/* Buy link — trade $MNEME on Noxa (Robinhood Chain) */}
+          {/* Buy link — Qwerti-powered checkout (auto-opens widget on /buy) */}
           <a
-            href="https://fun.noxa.fi"
-            target="_blank" rel="noreferrer"
+            href="/buy"
             className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gold-300/15 hover:bg-gold-300/25 border border-gold-300/30 hover:border-gold-300/60 text-gold-300 text-[11px] font-medium transition shrink-0"
           >
             Buy →

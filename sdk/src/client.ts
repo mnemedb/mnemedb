@@ -690,7 +690,7 @@ export class Mneme {
    *
    * @example
    * await m.streams.watch({
-   *   contract:     "0x3FcDbEBD5e7BaB79477cFDcA2CDCF6e904C27b07",
+   *   contract:     "0xb20000000000000000000030b1b281466486Db01",
    *   event:        "transfer",                    // or raw "Transfer(address,address,uint256)"
    *   target_table: "mneme_transfers",
    * });

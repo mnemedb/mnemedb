@@ -20,7 +20,7 @@ import { decodeEventLog, parseAbi, erc20Abi } from "viem";
 const route = new Hono();
 
 const MAX_FILE_BYTES   = 10 * 1024 * 1024;   // 10 MB per upload
-const MNEME_TOKEN      = "0x3FcDbEBD5e7BaB79477cFDcA2CDCF6e904C27b07" as const;
+const MNEME_TOKEN      = "0xb20000000000000000000030b1b281466486Db01" as const;
 const BURN_ADDRESS     = "0x000000000000000000000000000000000000dEaD" as const;
 const MNEME_DECIMALS   = 18;
 

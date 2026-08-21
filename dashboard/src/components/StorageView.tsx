@@ -5,12 +5,12 @@ import { createPublicClient, encodeFunctionData, formatEther, formatUnits, http,
 import { base } from "viem/chains";
 import { useMneme } from "../lib/mneme-client";
 
-const MNEME_TOKEN  = "0x3FcDbEBD5e7BaB79477cFDcA2CDCF6e904C27b07";
+const MNEME_TOKEN  = "0xb20000000000000000000030b1b281466486Db01";
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
 // $MNEME is relaunching on o1 — burns against the old contract are paused
 // until the new CA is live. Flip to false (and update MNEME_TOKEN) at launch.
-const RELAUNCH_PAUSED = true;
+const RELAUNCH_PAUSED = false;
 
 function RelaunchPausedModal({ onClose }: { onClose: () => void }) {
   return (

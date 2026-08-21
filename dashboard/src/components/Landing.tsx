@@ -40,12 +40,12 @@ export function Landing() {
           >
             GitHub
           </a>
-          <span
-            className="hidden sm:inline px-3 py-1.5 rounded-lg border border-gold-300/40 text-gold-300 transition text-sm font-medium"
-            title="New contract address will be announced"
+          <a
+            href="/buy"
+            className="hidden sm:inline px-3 py-1.5 rounded-lg border border-gold-300/40 text-gold-300 hover:bg-gold-300/10 hover:border-gold-300/70 transition text-sm font-medium"
           >
-            o1 Relaunch Soon
-          </span>
+            Buy $MNEME
+          </a>
           <button
             onClick={signIn}
             className="px-4 py-1.5 rounded-lg bg-white text-black hover:bg-marble-100 transition text-sm font-medium"
@@ -104,7 +104,7 @@ export function Landing() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
               <span>Live on <span className="text-ink-300">Base mainnet</span></span>
             </span>
-            <span><span className="text-gold-300/80 font-mono">$MNEME</span> · <span className="text-ink-300">o1 relaunch coming soon</span></span>
+            <span><span className="text-gold-300/80 font-mono">$MNEME</span> live on o1 · <span className="font-mono text-ink-300">0xb200…Db01</span></span>
             <span>15 MCP tools · <span className="text-ink-300">npm i mneme-sdk</span></span>
             <span>100 MB free storage · <span className="text-ink-300">cdn.mnemedb.dev</span></span>
             <span>4-second wallet onboarding</span>
@@ -634,12 +634,24 @@ function UseCase({ title, desc }: { title: string; desc: string }) {
 }
 
 /* ─── Top announcement banner — slim, dismissible ──────────────────────── */
+export const MNEME_CA = "0xb20000000000000000000030b1b281466486Db01";
+
 function AnnouncementBar() {
-  const KEY = "mneme.banner.dismissed.v2";
+  const KEY = "mneme.banner.dismissed.v3";
   const [dismissed, setDismissed] = useState(() =>
     typeof window !== "undefined" && localStorage.getItem(KEY) === "1"
   );
+  const [copied, setCopied] = useState(false);
   if (dismissed) return null;
+
+  const copyCa = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(MNEME_CA).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
 
   return (
     <div className="relative bg-gradient-to-r from-gold-300/10 via-gold-300/15 to-gold-300/10 border-b border-gold-300/20">
@@ -647,16 +659,31 @@ function AnnouncementBar() {
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <span className="text-gold-300 shrink-0">✦</span>
           <span className="text-ink-200 truncate">
-            <span className="font-semibold">🚀 $MNEME × o1 Relaunch — Coming Soon.</span>{" "}
-            <span className="text-ink-400 hidden sm:inline">new contract address will be announced here</span>
+            <span className="font-semibold">🚀 $MNEME is live on o1.</span>{" "}
+            <span className="text-ink-400 hidden sm:inline">only trust this contract address</span>
           </span>
+          <a href="https://launch.o1.exchange" target="_blank" rel="noreferrer" className="hidden lg:inline text-gold-300 hover:text-gold-200 underline underline-offset-2 shrink-0">
+            Trade on o1 →
+          </a>
 
-          {/* CA chip — relaunch pending, new CA to be announced */}
-          <span className="hidden md:inline-flex items-center gap-1 bg-ink-950/70 border border-ink-800 rounded-full px-2.5 py-0.5 ml-auto shrink-0">
+          {/* CA chip — full address, click to copy */}
+          <button
+            onClick={copyCa}
+            className="hidden md:inline-flex items-center gap-1.5 bg-ink-950/70 border border-ink-800 hover:border-gold-300/40 rounded-full px-2.5 py-0.5 ml-auto shrink-0 transition"
+            title={copied ? "Copied!" : "Copy contract address"}
+          >
             <span className="text-gold-300 font-mono text-[10.5px] tracking-tight">
-              $MNEME · New CA · TBA
+              $MNEME · {MNEME_CA.slice(0, 8)}…{MNEME_CA.slice(-4)}
             </span>
-          </span>
+            <span className="text-ink-500">{copied ? "✓" : "⧉"}</span>
+          </button>
+
+          <a
+            href="/buy"
+            className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gold-300/15 hover:bg-gold-300/25 border border-gold-300/30 hover:border-gold-300/60 text-gold-300 text-[11px] font-medium transition shrink-0"
+          >
+            Buy →
+          </a>
         </div>
         <button
           onClick={() => { localStorage.setItem(KEY, "1"); setDismissed(true); }}
